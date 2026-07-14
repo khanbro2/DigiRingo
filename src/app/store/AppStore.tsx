@@ -24,6 +24,7 @@ import {
   answerCall as voiceAnswer, register as voiceRegister, unregister as voiceUnregister,
   subscribeCall, clearCall as voiceClear, type CallSnapshot,
 } from "../services/voice";
+import { initWebPush } from "../services/push";
 
 /** Map the backend user/wallet shapes onto the app's domain types. */
 const toAppUser = (u: ApiUser): User => {
@@ -633,7 +634,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // inbound calls to the user's number ring the app. Unregister on sign-out.
   const authedForVoice = !!state.user && state.user.emailVerified !== false;
   useEffect(() => {
-    if (authedForVoice) voiceRegister();
+    if (authedForVoice) { voiceRegister(); initWebPush(); }
     else voiceUnregister();
   }, [authedForVoice]);
 

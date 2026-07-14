@@ -27,3 +27,39 @@ self.addEventListener("fetch", (event) => {
       .catch(() => caches.match(req).then((hit) => hit || caches.match("/app")))
   );
 });
+
+/* ---- Web Push: incoming-call alerts even when the tab is backgrounded ---- */
+self.addEventListener("push", (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch { /* ignore */ }
+  const title = data.title || "Incoming call";
+  const body = data.body || "Someone is calling you";
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      tag: "dg-incoming-call",
+      renotify: true,
+      requireInteraction: true,
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      vibrate: [200, 100, 200, 100, 200],
+      data: { url: "/app", from: data.from || "" },
+      actions: [
+        { action: "open", title: "Answer" },
+        { action: "dismiss", title: "Dismiss" },
+      ],
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  if (event.action === "dismiss") return;
+  event.waitUntil((async () => {
+    const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const c of all) {
+      if (c.url.includes("/app")) { try { await c.focus(); return; } catch { /* fall through */ } }
+    }
+    await self.clients.openWindow("/app");
+  })());
+});

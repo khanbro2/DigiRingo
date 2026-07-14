@@ -893,3 +893,23 @@ export async function getAgent(id) {
   if (!a) return null;
   return { id: a.id, name: a.name, email: a.email, active: !!Number(a.active) };
 }
+
+/* ------------------------------------------------- web push subscriptions */
+export async function savePushSubscription(uid, { endpoint, p256dh, auth } = {}) {
+  if (!uid || !endpoint || !p256dh || !auth) return;
+  await pool.query(
+    `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth) VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), p256dh = VALUES(p256dh), auth = VALUES(auth)`,
+    [uid, String(endpoint).slice(0, 512), String(p256dh).slice(0, 191), String(auth).slice(0, 191)]
+  );
+}
+
+export async function getPushSubscriptions(uid) {
+  const [rows] = await pool.query("SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?", [uid]);
+  return rows.map((r) => ({ endpoint: r.endpoint, p256dh: r.p256dh, auth: r.auth }));
+}
+
+export async function deletePushSubscription(endpoint) {
+  if (!endpoint) return;
+  await pool.query("DELETE FROM push_subscriptions WHERE endpoint = ?", [String(endpoint)]);
+}

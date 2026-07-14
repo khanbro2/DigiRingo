@@ -32,6 +32,7 @@ import {
   freemiusConfigured, verifyWebhook as fsVerifyWebhook, parseEvent as fsParseEvent,
   grantFor as fsGrantFor, getCheckouts as fsCheckouts, getProductId as fsProductId, getPublicKey as fsPublicKey,
 } from "./freemius.mjs";
+import { sendPush, vapidPublicKey, webPushConfigured } from "./webpush.mjs";
 
 // Resolve the app root and load env from a `.env` there (DB creds + all secrets)
 // if present — keeps the deployment self-contained and SSH-configurable.
@@ -496,7 +497,7 @@ async function inboundTeXML({ stage, to, from }) {
   // Stage 1: ring the in-app WebRTC softphone (if the user has a SIP identity).
   if (stage === "start" && owner.sipUsername) {
     return texmlResponse(
-      `  <Dial timeout="18" answerOnBridge="true" callerId="${xmlEsc(from)}" action="${xmlEsc(qs("fwd"))}" method="POST">\n` +
+      `  <Dial timeout="30" answerOnBridge="true" callerId="${xmlEsc(from)}" action="${xmlEsc(qs("fwd"))}" method="POST">\n` +
       `    <Sip>sip:${xmlEsc(owner.sipUsername)}@sip.telnyx.com</Sip>\n` +
       `  </Dial>`
     );
@@ -511,6 +512,19 @@ async function inboundTeXML({ stage, to, from }) {
   }
   // Stage 3 (or nothing left to try): voicemail.
   return voicemailTeXML(owner, to, from);
+}
+
+/** Web-push an "incoming call" alert to a user's browsers (so a backgrounded /
+ *  minimized tab still notifies — the WebRTC leg still rings the app if open). */
+async function notifyIncomingCall(userId, from) {
+  if (!db || !webPushConfigured()) return;
+  try {
+    const subs = await db.getPushSubscriptions(userId);
+    await Promise.all(subs.map(async (s) => {
+      const r = await sendPush(s, { type: "call", title: "Incoming call", body: `${from || "Someone"} is calling you`, from: from || "" });
+      if (r.gone) await db.deletePushSubscription(s.endpoint).catch(() => {});
+    }));
+  } catch (e) { console.error("notifyIncomingCall:", e.message); }
 }
 
 /* ------------------------------------------------------ in-memory inbox store */
@@ -659,6 +673,8 @@ createServer(async (req, res) => {
       const allParams = {}; for (const [k, val] of p) allParams[k] = val;
       const own = db ? await db.findNumberOwner(to).catch(() => null) : null;
       console.error(`☎ TEXML stage=${stage} to=${to} from=${from} dialStatus=${dialStatus} sip=${own?.sipUsername || "-"} fwd=${own?.forwardNumber || "-"} vm=${own?.voicemailEnabled} params=${JSON.stringify(allParams)}`);
+      // On the first hop, web-push the owner so a backgrounded browser tab alerts.
+      if (stage === "start" && own) notifyIncomingCall(own.userId, from).catch(() => {});
       // If a prior <Dial> leg was answered & completed, stop — don't fall through
       // to voicemail after a real conversation.
       if (dialStatus === "completed" || dialStatus === "answered") {
@@ -1094,6 +1110,24 @@ createServer(async (req, res) => {
     const uid = db.verifyToken(bearer(req));
     if (!uid) return send(res, 401, { error: "Not authenticated" });
     try { return send(res, 200, { voicemails: await db.listVoicemails(uid) }); }
+    catch (e) { return send(res, 500, { error: e.message }); }
+  }
+
+  // 3h) Web Push — public VAPID key (for the browser to subscribe) + save the
+  //     subscription. Lets a backgrounded browser tab get incoming-call alerts.
+  if (req.url?.startsWith("/api/push/vapid") && req.method === "GET") {
+    return send(res, 200, { publicKey: vapidPublicKey(), enabled: webPushConfigured() });
+  }
+  if (req.url?.startsWith("/api/push/subscribe") && req.method === "POST") {
+    if (!db) return send(res, 503, { error: "Database not configured" });
+    const uid = db.verifyToken(bearer(req));
+    if (!uid) return send(res, 401, { error: "Not authenticated" });
+    const body = await readBody(req);
+    let d; try { d = JSON.parse(body || "{}"); } catch { d = {}; }
+    const sub = d.subscription || d;
+    const keys = sub.keys || {};
+    if (!sub.endpoint || !keys.p256dh || !keys.auth) return send(res, 400, { error: "Invalid subscription" });
+    try { await db.savePushSubscription(uid, { endpoint: sub.endpoint, p256dh: keys.p256dh, auth: keys.auth }); return send(res, 200, { ok: true }); }
     catch (e) { return send(res, 500, { error: e.message }); }
   }
 
