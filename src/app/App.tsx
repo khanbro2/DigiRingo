@@ -5,6 +5,7 @@ import { ThemeProvider } from "./core/theme-context";
 import { PhoneFrame } from "./components/PhoneFrame";
 import { PhoneGate } from "./MobileShell";
 import { DashboardShell } from "./DashboardShell";
+import { isNative } from "./native";
 
 /** True on desktop-width viewports (where the dashboard layout is used). */
 function useIsDesktop() {
@@ -32,6 +33,22 @@ function Root() {
   const authed = !!state.user && state.user.emailVerified !== false;
 
   if (isDesktop && authed) return <DashboardShell />;
+
+  // Native (Capacitor) app: fill the real device screen — NO phone-mockup frame
+  // or fake status bar (that chrome is only for the web/desktop preview, and on a
+  // real phone it looks like a phone-inside-a-phone). Safe-area insets keep the
+  // content clear of the system status bar / gesture bar.
+  if (isNative()) {
+    return (
+      <div style={{
+        width: "100vw", height: "100dvh", display: "flex", flexDirection: "column",
+        overflow: "hidden", background: C.bg,
+        paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)",
+      }}>
+        <PhoneGate />
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: C.shell, padding: "20px 0", fontFamily: "'Inter', sans-serif" }}>
