@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { Mic, MicOff, PhoneOff, Phone, Volume2, X } from "lucide-react";
 import { font } from "../core/theme";
 import { useApp } from "../store/AppStore";
+import { startRingtone, stopRingtone } from "../services/ringtone";
 import type { CallQuality } from "../services/voice";
 
 /**
@@ -27,6 +28,13 @@ export function InCallScreen({ desktop }: { desktop?: boolean }) {
     const t = setTimeout(() => dismissCall(), 3200);
     return () => clearTimeout(t);
   }, [activeCall?.phase, dismissCall]);
+
+  // Ring out loud while an incoming call is ringing; stop once answered/ended.
+  useEffect(() => {
+    if (activeCall?.phase === "incoming") startRingtone();
+    else stopRingtone();
+    return () => stopRingtone();
+  }, [activeCall?.phase]);
 
   if (!activeCall) return null;
   const { phase, contact, callerNumber, muted, quality, startedAt, error } = activeCall;
