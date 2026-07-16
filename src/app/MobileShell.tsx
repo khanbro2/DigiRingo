@@ -23,6 +23,7 @@ import { PlansScreen } from "./screens/PlansScreen";
 import { NumberSettingsScreen } from "./screens/NumberSettingsScreen";
 import { TrustCenterScreen } from "./screens/TrustCenterScreen";
 import { BuyNumberModal } from "./components/BuyNumberModal";
+import { NotifyBar } from "./components/NotifyBar";
 import { NUMBER_RENTAL, type BundleId, type BillingCycle } from "./core/plans";
 
 type Tab = "home" | "numbers" | "calls" | "inbox" | "activity" | "settings";
@@ -136,6 +137,9 @@ export function Shell({ preview }: { preview?: boolean } = {}) {
 
   return (
     <>
+      {/* Call-notification permission bar — prominent, above everything. */}
+      <NotifyBar />
+
       {/* Main content */}
       <div style={{ flex: 1, position: "relative", overflow: "hidden", minHeight: 0 }}>
         {overlay ? (

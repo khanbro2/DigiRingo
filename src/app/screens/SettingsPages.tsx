@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, type ReactNode, type CSSProperties } from "react";
 import {
   ArrowLeft, ChevronRight, Search, Phone, MessageSquare, Plus, X,
-  Mail, MessageCircle, HelpCircle, Send,
+  Mail, MessageCircle, HelpCircle, Send, Check, Volume2,
 } from "lucide-react";
+import { RINGTONES, getRingtone, setRingtone, previewRingtone, type RingtoneId } from "../services/ringtone";
 import { C, gradients, font, radius } from "../core/theme";
 import { useApp } from "../store/AppStore";
 import { apiGetForwarding, apiSetForwarding, apiGetSupport, apiSendSupport, type ApiSupportMessage } from "../services/api";
@@ -150,6 +151,7 @@ export function CallForwardingPage({ onBack }: { onBack: () => void }) {
   const { state, showToast } = useApp();
   const [fwd, setFwd] = useState("");
   const [vm, setVm] = useState(true);
+  const [toneId, setToneId] = useState<RingtoneId>(() => getRingtone());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -194,6 +196,20 @@ export function CallForwardingPage({ onBack }: { onBack: () => void }) {
           <Toggle on={vm} onClick={() => setVm((v) => !v)} />
         </Row>
       </Group>
+
+      {/* Ringtone — pick the incoming-call sound; tapping previews it. */}
+      <Group title="Ringtone">
+        {RINGTONES.map((r, i) => (
+          <Row key={r.id} label={r.name} sub={r.desc} last={i === RINGTONES.length - 1}
+            onClick={() => { setRingtone(r.id); setToneId(r.id); previewRingtone(r.id); }}>
+            {toneId === r.id
+              ? <Check size={17} color={C.blue} />
+              : <Volume2 size={15} color={C.faint} />}
+          </Row>
+        ))}
+      </Group>
+      <p style={{ color: C.faint, fontSize: 11.5, padding: "0 24px 12px", marginTop: -6 }}>Tap a ringtone to hear it — your pick is used when a call rings.</p>
+
       <div style={{ padding: "4px 20px 20px" }}>
         <button onClick={save} disabled={saving || loading} style={{ ...primaryBtn, opacity: saving || loading ? 0.6 : 1 }}>
           {saving ? "Saving…" : "Save"}

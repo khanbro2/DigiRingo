@@ -22,6 +22,7 @@ import { TrustCenterScreen } from "./screens/TrustCenterScreen";
 import { DialerScreen } from "./screens/DialerScreen";
 import { InCallScreen } from "./screens/InCallScreen";
 import { BuyNumberModal } from "./components/BuyNumberModal";
+import { NotifyBar } from "./components/NotifyBar";
 
 export type Section = "home" | "numbers" | "inbox" | "calls" | "activity" | "plans" | "wallet" | "trust" | "settings";
 type Sub =
@@ -191,6 +192,8 @@ export function DashboardShell() {
 
       {/* ---------- Main column ---------- */}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+        {/* Call-notification permission bar — prominent, above everything. */}
+        <NotifyBar />
         {/* Top bar */}
         <header style={{ height: 66, flexShrink: 0, borderBottom: `1px solid ${C.line}`, background: C.bg, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px" }}>
           <div>
