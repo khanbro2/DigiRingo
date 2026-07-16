@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { X, ChevronDown, Check, Search, Loader2, Wallet, CreditCard, Gift, Sparkles, AlertTriangle } from "lucide-react";
 import { BUNDLES, bundlePrice, getBundle, NUMBER_RENTAL, type BundleId, type BillingCycle } from "../core/plans";
 import type { Subscription } from "../core/types";
-import { freemiusReady } from "../services/freemius";
+import { stripeReady, startCheckout } from "../services/stripe";
 
 const C = {
   bg: "var(--dg-bg)", card: "var(--dg-card)", input: "var(--dg-input)", line: "var(--dg-line)",
@@ -41,7 +41,7 @@ interface Props {
   subscription: Subscription | null;
   /** Activate a plan (from the wallet) and claim this number free, in one flow. */
   onSubscribeAndBuy: (n: AvailableNumber, tier: BundleId, cycle: BillingCycle) => Promise<void> | void;
-  /** Activate a plan by CARD (Freemius) and claim this number free once it's active. */
+  /** Activate a plan by CARD (Stripe) and claim this number free once it's active. */
   onCardPlanAndBuy: (n: AvailableNumber, tier: BundleId, cycle: BillingCycle) => Promise<void> | void;
   /** Add a number to the existing plan — free (included slot) or a paid extra (wallet). */
   onAddNumber: (n: AvailableNumber, opts: { free?: boolean }) => Promise<void> | void;
@@ -155,9 +155,9 @@ export function BuyNumberModal({ onClose, onSearch, walletBalance, subscription,
 
   const payingPlan = mode === "choosePlan";
   const payBundle = pickedTier ? getBundle(pickedTier) : undefined;
-  const payAmount = payingPlan
-    ? (payBundle ? bundlePrice(payBundle, cycle) : 0)
-    : RENTAL_PRICE;
+  const planPart = payingPlan && payBundle ? bundlePrice(payBundle, cycle) : 0;
+  // No number is free anymore — the number's rental is always part of the total.
+  const payAmount = payingPlan ? planPart + RENTAL_PRICE : RENTAL_PRICE;
   const enough = walletBalance >= payAmount;
 
   const selectNumber = (num: string) => {
@@ -184,13 +184,18 @@ export function BuyNumberModal({ onClose, onSearch, walletBalance, subscription,
     setBusy(false);
     onClose();
   };
-  // Pay for the NEW plan by card (Freemius) and claim the number free once the
+  // Pay for the NEW plan by card (Stripe) and claim the number free once the
   // plan activates. The overlay + activation run after the modal closes; toasts
   // report progress (handled in the parent handler).
-  const completeCardPlan = () => {
-    if (!chosenNumber || !pickedTier) return;
-    onCardPlanAndBuy(chosenNumber, pickedTier, cycle);
-    onClose();
+  const completeCard = () => {
+    if (!chosenNumber) return;
+    if (payingPlan && pickedTier) {
+      onCardPlanAndBuy(chosenNumber, pickedTier, cycle); // plan + number by card
+      onClose();
+    } else {
+      // Existing plan → just the extra number by card (redirects to Stripe).
+      startCheckout({ kind: "number", phone: chosenNumber.e164, numberKind: "local" }).catch(() => {});
+    }
   };
 
   return (
@@ -227,7 +232,7 @@ export function BuyNumberModal({ onClose, onSearch, walletBalance, subscription,
             <h2 style={{ color: C.text, fontSize: 19, fontWeight: 800 }}>
               {step === "pay" ? "Confirm & Pay" : "Get a Number"}
             </h2>
-            {step === "pick" && <p style={{ color: C.muted, fontSize: 12, marginTop: 3 }}>Pick a number — it comes free with a plan</p>}
+            {step === "pick" && <p style={{ color: C.muted, fontSize: 12, marginTop: 3 }}>Pick a number — ${RENTAL_PRICE.toFixed(2)}/mo with a plan</p>}
           </div>
           <button onClick={onClose} style={{
             width: 34, height: 34, borderRadius: 11,
@@ -353,8 +358,8 @@ export function BuyNumberModal({ onClose, onSearch, walletBalance, subscription,
                             {n.sms && <Tag label="SMS" />}
                           </div>
                         </div>
-                        <span style={{ display: "flex", alignItems: "center", gap: 4, color: C.green, fontSize: 11.5, fontWeight: 800 }}>
-                          <Gift size={13} /> FREE
+                        <span style={{ display: "flex", alignItems: "baseline", gap: 1, color: C.text, fontSize: 13.5, fontWeight: 800 }}>
+                          ${RENTAL_PRICE.toFixed(2)}<span style={{ color: C.muted, fontSize: 10, fontWeight: 600 }}>/mo</span>
                         </span>
                       </button>
 
@@ -414,11 +419,11 @@ export function BuyNumberModal({ onClose, onSearch, walletBalance, subscription,
                           {mode === "choosePlan" && (
                             <>
                               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                                <Gift size={16} color={C.green} />
-                                <span style={{ color: C.text, fontSize: 14, fontWeight: 800 }}>This number is FREE with any plan</span>
+                                <Sparkles size={16} color={C.blue} />
+                                <span style={{ color: C.text, fontSize: 14, fontWeight: 800 }}>Pick a plan for this number</span>
                               </div>
                               <p style={{ color: C.muted, fontSize: 11.5, lineHeight: 1.5, marginBottom: 12 }}>
-                                Pick a plan to activate — you can't use a number without one. It includes minutes, SMS and this number free.
+                                A number needs an active plan. You'll pay the plan plus the number (<b style={{ color: C.text }}>${RENTAL_PRICE.toFixed(2)}/mo</b>, shares the plan's minutes &amp; SMS).
                               </p>
 
                               {/* Monthly / annual toggle */}
@@ -463,7 +468,7 @@ export function BuyNumberModal({ onClose, onSearch, walletBalance, subscription,
                                         </span>
                                       </div>
                                       <p style={{ color: C.muted, fontSize: 11.5, marginTop: 3 }}>
-                                        {b.minutes.toLocaleString()} min · {b.sms.toLocaleString()} SMS · {b.numbersIncluded} free number (up to {b.maxNumbers})
+                                        {b.minutes.toLocaleString()} min · {b.sms.toLocaleString()} SMS · up to {b.maxNumbers} numbers (${RENTAL_PRICE.toFixed(2)}/mo each)
                                       </p>
                                     </button>
                                   );
@@ -519,9 +524,9 @@ export function BuyNumberModal({ onClose, onSearch, walletBalance, subscription,
               <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 14, display: "flex", flexDirection: "column", gap: 9 }}>
                 {(payingPlan
                   ? [
-                      { k: "Plan", v: `${payBundle?.name} (${cycle})` },
+                      { k: "Plan", v: `${payBundle?.name} (${cycle}) · $${planPart.toFixed(cycle === "annual" ? 0 : 2)}` },
                       { k: "Includes", v: `${payBundle?.minutes.toLocaleString()} min · ${payBundle?.sms.toLocaleString()} SMS` },
-                      { k: "This number", v: "FREE" },
+                      { k: "Number", v: `$${RENTAL_PRICE.toFixed(2)}/mo` },
                       { k: "Total today", v: `$${payAmount.toFixed(cycle === "annual" ? 0 : 2)}` },
                     ]
                   : [
@@ -539,12 +544,12 @@ export function BuyNumberModal({ onClose, onSearch, walletBalance, subscription,
               </div>
             </div>
 
-            {/* Payment: wallet always; card (Freemius) offered for a NEW plan. */}
+            {/* Payment: wallet always; card (Stripe) offered for a NEW plan. */}
             <p style={{ color: C.muted, fontSize: 11, fontWeight: 700, marginBottom: 8, letterSpacing: 0.8, textTransform: "uppercase" }}>Pay with</p>
             <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
               <PayTab active={pay === "wallet"} onClick={() => setPay("wallet")} Icon={Wallet} title="Wallet" sub={`Balance $${walletBalance.toFixed(2)}`} />
-              {payingPlan && (
-                <PayTab active={pay === "card"} onClick={() => setPay("card")} Icon={CreditCard} title="Card" sub="Renews auto" disabled={!freemiusReady()} />
+              {(payingPlan || mode === "paidExtra") && (
+                <PayTab active={pay === "card"} onClick={() => setPay("card")} Icon={CreditCard} title="Card" sub={payingPlan ? "Renews auto" : "Pay by card"} disabled={!stripeReady()} />
               )}
             </div>
 
@@ -575,12 +580,16 @@ export function BuyNumberModal({ onClose, onSearch, walletBalance, subscription,
             ) : (
               <>
                 <p style={{ color: C.muted, fontSize: 12, marginBottom: 12, textAlign: "center" }}>
-                  Pay <b style={{ color: C.text }}>${payAmount.toFixed(cycle === "annual" ? 0 : 2)}</b> by card — plan renews automatically and this number is added free.
+                  {payingPlan ? (
+                    <>You'll be redirected to a secure card checkout for <b style={{ color: C.text }}>${planPart.toFixed(cycle === "annual" ? 0 : 2)}</b> (plan) + <b style={{ color: C.text }}>${RENTAL_PRICE.toFixed(2)}</b> (number). The plan auto-renews.</>
+                  ) : (
+                    <>You'll be redirected to a secure card checkout for the number (<b style={{ color: C.text }}>${RENTAL_PRICE.toFixed(2)}/mo</b>).</>
+                  )}
                 </p>
                 <div style={{ display: "flex", gap: 10 }}>
                   <button onClick={() => setStep("pick")} style={backBtn}>Back</button>
                   <button
-                    onClick={completeCardPlan}
+                    onClick={completeCard}
                     style={{
                       flex: 2, padding: "14px", border: "none", borderRadius: 14, color: "#fff",
                       fontSize: 14, fontWeight: 800, fontFamily: "'Inter',sans-serif",

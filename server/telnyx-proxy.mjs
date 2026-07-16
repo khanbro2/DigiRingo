@@ -27,12 +27,9 @@ import { readFile, stat } from "node:fs/promises";
 import { join, normalize, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHmac, timingSafeEqual, createPublicKey, verify as edVerify } from "node:crypto";
-import { numberPrice, bundleCharge, bundleFor } from "./plans.mjs";
-import {
-  freemiusConfigured, verifyWebhook as fsVerifyWebhook, parseEvent as fsParseEvent,
-  grantFor as fsGrantFor, getCheckouts as fsCheckouts, getProductId as fsProductId, getPublicKey as fsPublicKey,
-} from "./freemius.mjs";
+import { numberPrice, bundleCharge } from "./plans.mjs";
 import { sendPush, vapidPublicKey, webPushConfigured } from "./webpush.mjs";
+import { createCheckoutSession as stripeCheckout, verifyWebhook as stripeVerify, publishableKey as stripePubKey, stripeConfigured } from "./stripe.mjs";
 
 // Resolve the app root and load env from a `.env` there (DB creds + all secrets)
 // if present — keeps the deployment self-contained and SSH-configurable.
@@ -149,8 +146,8 @@ const PREFIX = "/api/telnyx";
 // (ROOT/DIST resolved above — this one Node server hosts the marketing site (/),
 // the app (/app) and the Control Hub (/admin) alongside the API.)
 
-// Payments run through Freemius (Merchant of Record) — see server/freemius.mjs.
-// The browser opens Freemius's hosted checkout; fulfilment happens via webhook.
+// Payments run through Stripe (hosted Checkout) — see server/stripe.mjs.
+// The browser opens Stripe's Checkout; fulfilment happens via the signed webhook.
 // No card secrets live in this process.
 
 // The Telnyx key is optional at boot: without it the static site still serves
@@ -183,49 +180,13 @@ const payErr = (status, msg) => { const e = new Error(msg); e.status = status; r
 /**
  * Take payment of `amount` USD from a user's wallet balance. The SERVER decides
  * the amount — callers pass the authoritative figure from plans.mjs, never a
- * client-sent price. Direct card payments go through Freemius's hosted checkout
+ * client-sent price. Direct card payments go through Stripe's hosted Checkout
  * (which credits the wallet / activates the plan via webhook), so anything paid
  * here draws from the prepaid wallet. Throws payErr(402) if the balance is short.
  */
 async function takePayment(uid, amount, label) {
   const wallet = await db.debitWallet(uid, amount, label); // throws 402 if insufficient
   return { method: "wallet", wallet };
-}
-
-/* ----------------------------------------------------------------- Freemius */
-/**
- * Fulfil a verified Freemius webhook event: match the buyer by email, look up
- * what their payment grants, and apply it. Idempotency (no double-credit) is
- * enforced by the caller via db.recordFreemiusEvent before this runs.
- */
-async function fulfilFreemius(p) {
-  if (!db) throw new Error("DB not configured");
-  const user = p.email ? await db.getUserByEmail(p.email) : null;
-  if (!user) { console.warn("[freemius] no DGRINGO user for", p.email, "— event", p.type); return; }
-  const uid = user.id;
-
-  if (p.type === "payment.created") {
-    const grant = fsGrantFor({ pricingId: p.pricingId, planId: p.planId, billingCycle: p.billingCycle });
-    if (!grant) { console.warn("[freemius] no grant mapped for pricing", p.pricingId, "plan", p.planId); return; }
-    if (grant.kind === "topup") {
-      const amt = grant.amount || p.amount;
-      if (!(amt > 0)) { console.warn("[freemius] top-up with no amount", p.id); return; }
-      await db.creditWallet(uid, amt, `Wallet top-up $${amt.toFixed(2)} (Freemius)`, `fs_${p.id}`);
-      await db.logActivity(uid, { kind: "wallet", title: "Top-up successful", body: `$${amt.toFixed(2)} added to your wallet.` });
-    } else if (grant.kind === "bundle") {
-      const b = bundleFor(grant.tier);
-      if (!b) { console.warn("[freemius] unknown bundle tier", grant.tier); return; }
-      await db.activateBundle(uid, {
-        tier: b.id, cycle: grant.cycle, minutes: b.minutes, sms: b.sms,
-        payMethod: "card", autoRenew: true, // Freemius runs the recurring charge
-        amount: grant.cycle === "annual" ? b.annualTotal : b.monthly,
-      });
-      await db.logActivity(uid, { kind: "wallet", title: "Plan activated", body: `Your ${b.name} plan (${grant.cycle}) is now active.` });
-    }
-  } else if (p.type === "subscription.cancelled" || p.type === "subscription.renewal.failed") {
-    await db.markSubscriptionPastDue(uid);
-  }
-  // subscription.created / subscription.updated are covered by payment.created.
 }
 
 /* ------------------------------------------------------------ static serving */
@@ -527,6 +488,50 @@ async function notifyIncomingCall(userId, from) {
   } catch (e) { console.error("notifyIncomingCall:", e.message); }
 }
 
+/** Place a Telnyx number order + record ownership + log it. Throws on failure.
+ *  Shared by the wallet buy route and the Stripe webhook (card fulfilment). */
+async function orderTelnyxNumber(uid, phoneNumber, kind = "local", { free = false, amount = 0 } = {}) {
+  const voiceConn = await getTexmlAppId().catch(() =>
+    getSipConnectionId().catch(() => process.env.VITE_TELNYX_CONNECTION_ID));
+  const r = await telnyxFetch("/number_orders", { method: "POST", body: JSON.stringify({
+    phone_numbers: [{ phone_number: phoneNumber }],
+    messaging_profile_id: process.env.VITE_TELNYX_MESSAGING_PROFILE_ID,
+    connection_id: voiceConn || process.env.VITE_TELNYX_CONNECTION_ID,
+  }) });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j?.errors?.[0]?.detail || "Number order failed");
+  const telnyxId = j?.data?.phone_numbers?.[0]?.id || "";
+  await db.provisionNumber(uid, { e164: phoneNumber, kind, telnyxId, free });
+  await db.logActivity(uid, { kind: "number", title: "Number added", body: free
+    ? `${phoneNumber} added with your plan. Register it in Trust center to send SMS.`
+    : `${phoneNumber} added for $${Number(amount).toFixed(2)}/mo. Register it in Trust center to send SMS.` });
+  return j.data;
+}
+
+/** Fulfil a completed Stripe Checkout from its metadata: credit wallet (topup),
+ *  activate the plan, and/or provision the paid number. */
+async function fulfilStripe(uid, m, sessionId) {
+  const kind = m.kind;
+  if (kind === "topup") {
+    const amt = Number(m.amount) || 0;
+    if (amt > 0) await db.creditWallet(uid, amt, `Wallet top-up $${amt.toFixed(2)} (Stripe)`, `stripe_${sessionId}`);
+    return;
+  }
+  if (kind === "plan" || kind === "plan_number") {
+    const cycle = m.cycle === "annual" ? "annual" : "monthly";
+    const charge = bundleCharge(m.tier, cycle);
+    if (charge) {
+      const b = charge.bundle;
+      await db.activateBundle(uid, { tier: b.id, cycle, minutes: b.minutes, sms: b.sms, payMethod: "card", autoRenew: true, amount: charge.amount });
+      await db.logActivity(uid, { kind: "wallet", title: "Plan activated", body: `Your ${b.name} plan (${cycle}) is now active.` });
+    }
+  }
+  if ((kind === "plan_number" || kind === "number") && m.phone) {
+    const nkind = m.numberKind === "tollfree" ? "tollfree" : "local";
+    await orderTelnyxNumber(uid, m.phone, nkind, { free: false, amount: numberPrice(nkind) });
+  }
+}
+
 /* ------------------------------------------------------ in-memory inbox store */
 // key: `${ownedE164}|${contactE164}`  →  thread object
 const threads = new Map();
@@ -690,46 +695,77 @@ createServer(async (req, res) => {
     return res.end(xml);
   }
 
-  // 2) Freemius (Merchant of Record) — the browser opens Freemius's hosted
-  //    checkout; PAYMENTS are fulfilled here via signed webhooks.
-  //
-  //    GET  /api/freemius/config  — public product id + key + checkout id map so
-  //         the browser can open the right overlay (server is source of truth;
-  //         changing IDs needs no frontend rebuild).
-  if (req.url?.startsWith("/api/freemius/config") && req.method === "GET") {
-    if (!freemiusConfigured()) return send(res, 503, { error: "Payments are not configured yet" });
-    return send(res, 200, { productId: fsProductId(), publicKey: fsPublicKey(), checkouts: fsCheckouts() });
+  // 2b) Stripe (card rail). Public config (publishable key) + create a Checkout
+  //     Session + fulfil via the signed webhook.
+  if (req.url?.startsWith("/api/stripe/config") && req.method === "GET") {
+    return send(res, 200, { publishableKey: stripePubKey(), enabled: stripeConfigured() });
   }
-  //    POST /api/freemius/webhook — Freemius event. Verify the x-signature HMAC,
-  //         claim the event id (idempotency), then fulfil. On a fulfilment error
-  //         we release the claim and 500 so Freemius retries.
-  if (req.url?.startsWith("/api/freemius/webhook") && req.method === "POST") {
+  //    POST /api/stripe/webhook — verify the signature, then fulfil the completed
+  //    checkout (credit wallet / activate plan / provision number) idempotently.
+  if (req.url?.startsWith("/api/stripe/webhook") && req.method === "POST") {
     const raw = await readBody(req);
-    if (!freemiusConfigured()) return send(res, 503, { error: "Payments are not configured yet" });
-    if (!fsVerifyWebhook(raw, req.headers["x-signature"])) {
-      console.warn("⚠ rejected Freemius webhook: invalid signature");
-      return send(res, 401, { error: "invalid signature" });
-    }
-    let evt; try { evt = JSON.parse(raw || "{}"); } catch { return send(res, 400, { error: "bad JSON" }); }
-    const parsed = fsParseEvent(evt);
-    // TEMP diagnostic (remove after go-live): log the real Freemius payload shape
-    // so parseEvent field paths can be confirmed against a live sandbox delivery.
-    console.error("☰ [freemius] raw:", raw.slice(0, 1800));
-    console.error("☰ [freemius] parsed:", JSON.stringify(parsed));
-    // Only act on the events we handle; ack the rest so Freemius stops retrying.
-    const HANDLED = new Set(["payment.created", "subscription.cancelled", "subscription.renewal.failed"]);
-    if (!HANDLED.has(parsed.type)) return send(res, 200, { ok: true, ignored: parsed.type });
+    const evt = stripeVerify(raw, req.headers["stripe-signature"]);
+    if (!evt) { console.warn("⚠ rejected Stripe webhook: invalid signature"); return send(res, 401, { error: "invalid signature" }); }
+    if (evt.type !== "checkout.session.completed") return send(res, 200, { ok: true, ignored: evt.type });
     if (!db) return send(res, 503, { error: "Database not configured" });
+    const session = evt.data?.object || {};
+    if (session.payment_status && session.payment_status !== "paid") return send(res, 200, { ok: true, unpaid: true });
+    const m = session.metadata || {};
+    const uid = Number(m.uid) || 0;
+    if (!uid) return send(res, 200, { ok: true, nouid: true });
     let claimed = false;
     try {
-      claimed = await db.recordFreemiusEvent(parsed.id);
-      if (!claimed) return send(res, 200, { ok: true, duplicate: true }); // already handled
-      await fulfilFreemius(parsed);
+      claimed = await db.recordFreemiusEvent(evt.id); // reuse the event-dedup table
+      if (!claimed) return send(res, 200, { ok: true, duplicate: true });
+      await fulfilStripe(uid, m, session.id || evt.id);
       return send(res, 200, { ok: true });
     } catch (e) {
-      if (claimed) await db.unrecordFreemiusEvent(parsed.id); // let Freemius retry
-      console.error("[freemius] fulfil failed:", e.message);
+      if (claimed) await db.unrecordFreemiusEvent(evt.id);
+      console.error("[stripe] fulfil failed:", e.message);
       return send(res, 500, { error: "fulfilment failed" });
+    }
+  }
+  //    POST /api/stripe/checkout — create a hosted Checkout Session for a topup /
+  //    plan / plan+number / number. SERVER sets all prices (never trusts client).
+  if (req.url?.startsWith("/api/stripe/checkout") && req.method === "POST") {
+    if (!db) return send(res, 503, { error: "Database not configured" });
+    const uid = db.verifyToken(bearer(req));
+    if (!uid) return send(res, 401, { error: "Not authenticated" });
+    if (!stripeConfigured()) return send(res, 503, { error: "Card payments are not configured" });
+    const body = await readBody(req);
+    let g; try { g = JSON.parse(body || "{}"); } catch { g = {}; }
+    const base = `https://${req.headers.host}`;
+    const successUrl = `${base}/app?pay=success`;
+    const cancelUrl = `${base}/app?pay=cancel`;
+    let email = null; try { const u = await db.getUser?.(uid); email = u?.email || null; } catch { /* optional */ }
+    try {
+      let lineItems, metadata = { uid: String(uid) };
+      if (g.kind === "topup") {
+        const amt = Math.max(1, Math.min(1000, Number(g.amount) || 0)); // clamp $1–$1000
+        lineItems = [{ name: "DGRINGO wallet top-up", amountCents: Math.round(amt * 100) }];
+        metadata = { ...metadata, kind: "topup", amount: amt.toFixed(2) };
+      } else if (g.kind === "plan" || g.kind === "plan_number") {
+        const cycle = g.cycle === "annual" ? "annual" : "monthly";
+        const charge = bundleCharge(g.tier, cycle);
+        if (!charge) return send(res, 400, { error: "Unknown plan" });
+        lineItems = [{ name: `${charge.bundle.name} plan (${cycle})`, amountCents: Math.round(charge.amount * 100) }];
+        metadata = { ...metadata, kind: g.kind, tier: charge.bundle.id, cycle };
+        if (g.kind === "plan_number") {
+          const nkind = g.numberKind === "tollfree" ? "tollfree" : "local";
+          lineItems.push({ name: `Phone number ${g.phone || ""}`, amountCents: Math.round(numberPrice(nkind) * 100) });
+          metadata = { ...metadata, phone: String(g.phone || ""), numberKind: nkind };
+        }
+      } else if (g.kind === "number") {
+        const nkind = g.numberKind === "tollfree" ? "tollfree" : "local";
+        lineItems = [{ name: `Phone number ${g.phone || ""}`, amountCents: Math.round(numberPrice(nkind) * 100) }];
+        metadata = { ...metadata, kind: "number", phone: String(g.phone || ""), numberKind: nkind };
+      } else {
+        return send(res, 400, { error: "Unknown checkout type" });
+      }
+      const sess = await stripeCheckout({ lineItems, metadata, successUrl, cancelUrl, customerEmail: email });
+      return send(res, 200, { url: sess.url, id: sess.id });
+    } catch (e) {
+      return send(res, 502, { error: e.message || "Could not start checkout" });
     }
   }
 
@@ -953,34 +989,19 @@ createServer(async (req, res) => {
     const label = free ? `Number ${phoneNumber} (free with plan)` : `Extra number ${phoneNumber} (${kind})`;
 
     // 1) take payment for EXTRA numbers only (the included one is free). Extra
-    //    numbers are billed to the WALLET — top it up via Freemius if it's short.
+    //    numbers are billed to the WALLET — top it up via Stripe if it's short.
     let paid = { method: "included" };
     if (!free) {
       try { paid = await takePayment(uid, amount, label); }
       catch (e) { return send(res, e.status || 500, { error: e.message }); }
     }
 
-    // 2) place the Telnyx order
+    // 2) place the Telnyx order (shared helper — also used by the Stripe webhook)
     try {
-      // Assign the number to the TeXML inbound app so incoming calls hit our
-      // /webhooks/texml router (ring in-app → forward → voicemail). Falls back to
-      // the WebRTC connection if the TeXML app can't be resolved.
-      const voiceConn = await getTexmlAppId().catch(() =>
-        getSipConnectionId().catch(() => process.env.VITE_TELNYX_CONNECTION_ID));
-      const r = await telnyxFetch("/number_orders", { method: "POST", body: JSON.stringify({
-        phone_numbers: [{ phone_number: phoneNumber }],
-        messaging_profile_id: process.env.VITE_TELNYX_MESSAGING_PROFILE_ID,
-        connection_id: voiceConn || process.env.VITE_TELNYX_CONNECTION_ID,
-      }) });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j?.errors?.[0]?.detail || "Number order failed");
-      // record ownership so plan-capacity counts this number
-      const telnyxId = j?.data?.phone_numbers?.[0]?.id || "";
-      try { await db.provisionNumber(uid, { e164: phoneNumber, kind, telnyxId, free }); } catch (e) { console.error("provisionNumber:", e.message); }
-      await db.logActivity(uid, { kind: "number", title: "Number added", body: free ? `${phoneNumber} added free with your plan. Register it in Trust center to send SMS.` : `${phoneNumber} added for $${amount.toFixed(2)}/mo. Register it in Trust center to send SMS.` });
+      const order = await orderTelnyxNumber(uid, phoneNumber, kind, { free, amount });
       const wallet = paid.wallet;
       const capacity = await db.numberCapacity(uid).catch(() => cap);
-      return send(res, 200, { ok: true, order: j.data, wallet, free, capacity });
+      return send(res, 200, { ok: true, order, wallet, free, capacity });
     } catch (e) {
       // 3) refund the paid extra number to the wallet if the order failed (free
       //    numbers took no money, so there's nothing to refund).
@@ -993,7 +1014,7 @@ createServer(async (req, res) => {
   // 3c) Subscribe to a bundle (Starter/Business/Pro) FROM THE WALLET. Server sets
   //     the price from plans.mjs by tier+cycle and debits the prepaid wallet;
   //     auto-renew then draws from the wallet next cycle. Paying by CARD instead
-  //     goes through Freemius's checkout (fulfilled by webhook → activateBundle),
+  //     goes through Stripe's Checkout (fulfilled by webhook → activateBundle),
   //     so this route is wallet-only. On activation failure the wallet is refunded.
   if (req.url?.startsWith("/api/bundles/subscribe") && req.method === "POST") {
     if (!db) return send(res, 503, { error: "Database not configured" });
@@ -1007,7 +1028,7 @@ createServer(async (req, res) => {
     const { amount, bundle } = charge;
     const label = `${bundle.name} plan (${cycle})`;
 
-    // 1) take payment from the wallet (402 if short → app prompts a Freemius top-up)
+    // 1) take payment from the wallet (402 if short → app prompts a Stripe top-up)
     let paid;
     try { paid = await takePayment(uid, amount, label); }
     catch (e) { return send(res, e.status || 500, { error: e.message }); }

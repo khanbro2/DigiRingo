@@ -3,7 +3,7 @@ import { ArrowLeft, Check, Wallet, CreditCard, X, Sparkles, Loader2 } from "luci
 import { C, gradients, font, radius } from "../core/theme";
 import { useApp } from "../store/AppStore";
 import { BUNDLES, bundlePrice, getBundle, type Bundle, type BillingCycle, type PayMethod } from "../core/plans";
-import { openCheckout, freemiusReady } from "../services/freemius";
+import { startCheckout, stripeReady } from "../services/stripe";
 
 interface Props { onBack: () => void; onTopUp: () => void; }
 
@@ -176,18 +176,14 @@ export function PaySheet({ bundle, cycle, walletBalance, onClose, onWallet, onCa
   const price = bundlePrice(bundle, cycle);
   const enough = walletBalance >= price;
 
-  // Card = Freemius hosted checkout (recurring, PK-friendly). The plan is
-  // activated SERVER-SIDE by the fulfilment webhook; we poll it in afterwards.
+  // Card = Stripe hosted Checkout. The plan is activated SERVER-SIDE by the
+  // webhook; the browser redirects to Stripe and returns to ?pay=success.
   const payByCard = async () => {
     setBusy(true);
     try {
-      await openCheckout({ kind: "bundle", tier: bundle.id, cycle }, { email: state.user?.email, name: state.user?.name });
-      showToast("Payment received — activating your plan…");
-      syncBillingSoon();
-      onCardDone();
+      await startCheckout({ kind: "plan", tier: bundle.id, cycle }); // redirects away
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Checkout failed";
-      if (msg !== "Checkout closed") showToast(msg, "error");
+      showToast(e instanceof Error ? e.message : "Checkout failed", "error");
     } finally {
       setBusy(false);
     }
@@ -216,7 +212,7 @@ export function PaySheet({ bundle, cycle, walletBalance, onClose, onWallet, onCa
         <p style={{ color: C.muted, fontSize: 11, fontWeight: 700, marginBottom: 8, letterSpacing: 0.8, textTransform: "uppercase" }}>Pay with</p>
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
           <PayTab active={pay === "wallet"} onClick={() => setPay("wallet")} Icon={Wallet} title="Wallet" sub={`Balance $${walletBalance.toFixed(2)}`} />
-          <PayTab active={pay === "card"} onClick={() => setPay("card")} Icon={CreditCard} title="Card" sub="Pay directly" disabled={!freemiusReady()} />
+          <PayTab active={pay === "card"} onClick={() => setPay("card")} Icon={CreditCard} title="Card" sub="Pay directly" disabled={!stripeReady()} />
         </div>
 
         {pay === "wallet" ? (

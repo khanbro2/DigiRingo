@@ -105,7 +105,7 @@ export interface BuyResult {
  * Buy a number through server-orchestrated billing. Every number belongs to a
  * plan: the SERVER requires an active bundle, makes the first number free, and
  * bills extras at the flat rental (from the WALLET) up to the plan cap. Paying
- * by card = topping the wallet up via Freemius first.
+ * by card = topping the wallet up via Stripe first.
  */
 export const apiBuyNumber = (phoneNumber: string, kind: NumberKind) =>
   req<BuyResult>("/api/numbers/buy", { method: "POST", body: JSON.stringify({ phoneNumber, kind }) });
@@ -114,7 +114,7 @@ export interface SubscribeResult { ok: boolean; subscription?: ApiSubscription; 
 
 /**
  * Subscribe to a bundle FROM THE WALLET. Server sets the price by tier+cycle and
- * debits the wallet. Paying by CARD goes through the Freemius hosted checkout
+ * debits the wallet. Paying by CARD goes through the Stripe hosted checkout
  * instead (fulfilled server-side by webhook), so this route is wallet-only.
  */
 export const apiSubscribe = (tier: string, cycle: BillingCycle) =>

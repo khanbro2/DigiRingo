@@ -1,42 +1,41 @@
 import { useState, type CSSProperties } from "react";
 import { ArrowLeft, ArrowDownLeft, ArrowUpRight, Plus, X, ShieldAlert, Loader2 } from "lucide-react";
-import { C, font, radius } from "../core/theme";
+import { C, font, radius, gradients } from "../core/theme";
 import { useApp } from "../store/AppStore";
-import { openCheckout, freemiusReady } from "../services/freemius";
+import { startCheckout, stripeReady } from "../services/stripe";
 
 interface Props { onBack?: () => void; onOpenTrust: () => void; desktop?: boolean; }
 
-// Fixed top-up packs. Freemius (Merchant of Record) sells defined products, so
-// the wallet is funded by choosing a pack rather than typing an arbitrary amount.
+// Quick top-up amounts (Stripe lets you charge ANY amount, so a custom amount is
+// also offered below).
 const PACKS = [5, 10, 20, 50];
 
 /**
- * Wallet — balance + top-up. Top-ups are real money via the Freemius hosted
- * checkout: the user picks a pack, pays on Freemius (card / PayPal on their
+ * Wallet — balance + top-up. Top-ups are real money via the Stripe hosted
+ * checkout: the user picks a pack, pays on Stripe (card / PayPal on their
  * side), and the wallet is credited SERVER-SIDE by the fulfilment webhook. We
  * then poll the balance so it appears within a few seconds.
  */
 export function WalletScreen({ onBack, onOpenTrust, desktop }: Props) {
-  const { state, addBalance, showToast, syncBillingSoon } = useApp();
+  const { state, addBalance, showToast } = useApp();
   const [sheet, setSheet] = useState(false);
   const [busy, setBusy] = useState<number | null>(null); // amount currently checking out
+  const [custom, setCustom] = useState("");
   const unverified = state.numbers.filter((n) => n.verification !== "verified").length;
 
-  // Fallback for local dev / mock (no Freemius configured): credit locally.
+  // Fallback for local dev / mock (no Stripe configured): credit locally.
   const topUpSimulated = (amount: number) => { addBalance(amount); setSheet(false); showToast(`$${amount.toFixed(2)} added (test)`); };
 
   const topUp = async (amount: number) => {
-    if (!freemiusReady()) { topUpSimulated(amount); return; }
+    if (!(amount > 0)) { showToast("Enter an amount", "error"); return; }
+    if (!stripeReady()) { topUpSimulated(amount); return; }
     setBusy(amount);
     try {
-      await openCheckout({ kind: "topup", amount }, { email: state.user?.email, name: state.user?.name });
-      setSheet(false);
-      showToast("Payment received — updating your balance…");
-      syncBillingSoon(); // webhook credits the wallet; poll it in
+      // Redirects to Stripe Checkout; the webhook credits the wallet, and we
+      // return to ?pay=success where the balance is refreshed.
+      await startCheckout({ kind: "topup", amount });
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Checkout failed";
-      if (msg !== "Checkout closed") showToast(msg, "error");
-    } finally {
+      showToast(e instanceof Error ? e.message : "Checkout failed", "error");
       setBusy(null);
     }
   };
@@ -96,7 +95,7 @@ export function WalletScreen({ onBack, onOpenTrust, desktop }: Props) {
         </div>
       </div>
 
-      {/* Top-up sheet — pick a pack; pay on Freemius. Centered dialog on desktop,
+      {/* Top-up sheet — pick a pack; pay on Stripe. Centered dialog on desktop,
           bottom sheet on mobile. */}
       {sheet && (
         <div onClick={(e) => e.target === e.currentTarget && busy === null && setSheet(false)} style={{
@@ -117,7 +116,7 @@ export function WalletScreen({ onBack, onOpenTrust, desktop }: Props) {
               <button onClick={() => busy === null && setSheet(false)} style={{ width: 34, height: 34, borderRadius: 11, background: C.input, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={16} color={C.muted} /></button>
             </div>
             <p style={{ color: C.muted, fontSize: 12.5, marginBottom: 16, lineHeight: 1.5 }}>
-              Choose a top-up pack and pay securely with card{freemiusReady() ? "" : " (test mode)"}. Your balance updates as soon as the payment is confirmed.
+              Choose an amount and pay securely by card{stripeReady() ? "" : " (test mode)"}. Your balance updates as soon as the payment is confirmed.
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               {PACKS.map((p) => {
@@ -135,6 +134,20 @@ export function WalletScreen({ onBack, onOpenTrust, desktop }: Props) {
                   </button>
                 );
               })}
+            </div>
+
+            {/* Custom amount (Stripe supports any amount) */}
+            <p style={{ color: C.muted, fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", margin: "16px 0 8px" }}>Or enter an amount</p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <div style={{ flex: 1, display: "flex", alignItems: "center", background: C.input, border: `1.5px solid ${C.line}`, borderRadius: radius.md, padding: "0 14px" }}>
+                <span style={{ color: C.muted, fontSize: 18, fontWeight: 800 }}>$</span>
+                <input value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^\d.]/g, ""))} placeholder="25.00" inputMode="decimal"
+                  style={{ flex: 1, padding: "14px 8px", background: "transparent", border: "none", color: C.text, fontSize: 18, fontWeight: 700, outline: "none", fontFamily: font.sans }} />
+              </div>
+              <button onClick={() => { const a = Math.round(parseFloat(custom) * 100) / 100; if (a > 0) topUp(a); }} disabled={busy !== null || !(parseFloat(custom) > 0)} style={{
+                padding: "0 22px", borderRadius: radius.md, border: "none", cursor: busy !== null || !(parseFloat(custom) > 0) ? "not-allowed" : "pointer",
+                background: parseFloat(custom) > 0 ? gradients.brand : C.input, color: parseFloat(custom) > 0 ? "#fff" : C.muted, fontSize: 14, fontWeight: 800, fontFamily: font.sans,
+              }}>Top up</button>
             </div>
           </div>
         </div>

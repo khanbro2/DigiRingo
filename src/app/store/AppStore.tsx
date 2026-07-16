@@ -18,7 +18,7 @@ import {
   apiGetActivity, apiLogActivity, apiMarkActivityRead, saveToken, clearToken, getToken, isNetworkError,
   type ApiUser, type ApiWallet, type ApiSubscription, type ApiCallLog, type ApiOwnedNumber, type ApiActivityItem,
 } from "../services/api";
-import { loadFreemiusConfig, openCheckout } from "../services/freemius";
+import { loadStripeConfig, startCheckout } from "../services/stripe";
 import {
   startCall as voiceStart, hangupCall as voiceHangup, toggleMute as voiceToggleMute,
   answerCall as voiceAnswer, register as voiceRegister, unregister as voiceUnregister,
@@ -284,17 +284,17 @@ interface Store {
   setWallet: (balance: number, txns: WalletTxn[]) => void;
   /** Re-fetch the wallet balance + transactions from the server. */
   refreshWallet: () => Promise<void>;
-  /** Poll wallet + subscription for a few seconds after a Freemius card payment,
+  /** Poll wallet + subscription for a few seconds after a Stripe card payment,
    *  so the UI catches up once the fulfilment webhook lands. */
   syncBillingSoon: () => void;
   /** Buy/add a number. `free` claims the plan's included free number; otherwise
    *  it's a paid extra billed to the wallet. */
   buyNumber: (n: PhoneNumber, opts?: { kind?: NumberKind; free?: boolean }) => Promise<boolean>;
-  /** Subscribe to a bundle from the wallet. (Card = Freemius checkout in the UI.) */
+  /** Subscribe to a bundle from the wallet. (Card = Stripe checkout in the UI.) */
   subscribe: (tier: string, cycle: BillingCycle, opts?: { pay?: PayMethod }) => Promise<boolean>;
   /** Activate a plan (from wallet) and claim a number free in one flow. */
   subscribeAndBuy: (n: PhoneNumber, tier: string, cycle: BillingCycle, opts?: { pay?: PayMethod; kind?: NumberKind }) => Promise<boolean>;
-  /** Activate a plan by CARD (Freemius) and claim a number free once it activates. */
+  /** Activate a plan by CARD (Stripe) and claim a number free once it activates. */
   subscribeByCardAndBuy: (n: PhoneNumber, tier: string, cycle: BillingCycle) => Promise<boolean>;
   /** Toggle wallet-funded auto-renew for the active plan. */
   setAutoRenew: (on: boolean) => Promise<void>;
@@ -414,7 +414,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try { const w = await apiWallet(); dispatch({ t: "SET_WALLET", balance: w.balance, txns: toAppTxns(w) }); } catch { /* ignore */ }
   }, []);
 
-  // After a Freemius card payment the wallet credit / plan activation happens via
+  // After a Stripe card payment the wallet credit / plan activation happens via
   // an async webhook, so poll both a few times to let the UI catch up.
   const syncBillingSoon: Store["syncBillingSoon"] = useCallback(() => {
     if (telnyx.mode === "mock") return;
@@ -437,9 +437,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch (e) { showToast(e instanceof Error ? e.message : "Couldn't send email", "error"); }
   }, [showToast]);
 
-  // Preload the Freemius payment config once so the checkout UIs know whether
-  // card payments are available (and can open the overlay without a round-trip).
-  useEffect(() => { loadFreemiusConfig(); }, []);
+  // Preload Stripe availability once so the checkout UIs know whether card
+  // payments are ready. Also: if we're returning from a Stripe Checkout
+  // (?pay=success), the webhook has fulfilled server-side — refresh + confirm.
+  useEffect(() => {
+    loadStripeConfig();
+    try {
+      const q = new URLSearchParams(window.location.search);
+      if (q.get("pay") === "success") {
+        showToast("Payment received — updating your account…");
+        syncBillingSoon();
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Restore the session on app start: if a saved token is valid, re-load the user
   // and wallet from the server (so a refresh keeps you logged in, balance intact).
@@ -658,7 +670,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Buy a number. Every number belongs to a plan: the FIRST number on a plan is
   // free (pass opts.free), extras cost the flat rental billed to the WALLET. In
   // LIVE mode the server re-checks capacity and decides free-vs-paid — the client
-  // price is a hint. A short wallet is topped up by card via Freemius elsewhere.
+  // price is a hint. A short wallet is topped up by card via Stripe elsewhere.
   const buyNumber: Store["buyNumber"] = useCallback(async (n, opts = {}) => {
     const kind: NumberKind = opts.kind ?? "local";
     const free = !!opts.free;
@@ -736,48 +748,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [state.wallet.balance, pushActivity, showToast, applySub]);
 
   // Subscribe to a plan AND claim a number in one flow: the plan is charged, then
-  // the number is provisioned FREE (it's the first on the new plan). Used by the
+  // the number is charged (no number is free) — both from the wallet. Used by the
   // Buy-a-Number modal where picking a plan is required to get a number.
   const subscribeAndBuy: Store["subscribeAndBuy"] = useCallback(async (n, tier, cycle, opts = {}) => {
     const ok = await subscribe(tier, cycle, { pay: opts.pay ?? "wallet" });
     if (!ok) return false;
-    // The number is now free (first on the freshly-activated plan).
-    return buyNumber(n, { kind: opts.kind ?? "local", free: true });
+    // Numbers are never free — charge the rental (from the wallet).
+    return buyNumber(n, { kind: opts.kind ?? "local", free: false });
   }, [subscribe, buyNumber]);
 
-  // Pay for a NEW plan by CARD (Freemius hosted checkout) and claim this number
-  // free once the plan activates. Freemius activates the plan SERVER-SIDE via the
-  // fulfilment webhook, so we poll until it's active, then provision the number.
+  // Pay for a NEW plan + number by CARD via Stripe Checkout. Stripe charges the
+  // combined amount and the webhook activates the plan AND provisions the number
+  // SERVER-SIDE; the browser redirects to Stripe and returns to ?pay=success.
   const subscribeByCardAndBuy: Store["subscribeByCardAndBuy"] = useCallback(async (n, tier, cycle) => {
-    if (telnyx.mode === "mock") { // dev/demo: activate locally then claim free
+    if (telnyx.mode === "mock") { // dev/demo: activate locally then charge the number
       const ok = await subscribe(tier, cycle, { pay: "card" });
-      return ok ? buyNumber(n, { kind: "local", free: true }) : false;
+      return ok ? buyNumber(n, { kind: "local", free: false }) : false;
     }
     try {
-      await openCheckout({ kind: "bundle", tier, cycle }, { email: state.user?.email, name: state.user?.name });
+      await startCheckout({ kind: "plan_number", tier, cycle, phone: n.e164, numberKind: "local" });
+      return true; // page redirects to Stripe Checkout
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Checkout failed";
-      if (msg !== "Checkout closed") showToast(msg, "error");
+      showToast(e instanceof Error ? e.message : "Checkout failed", "error");
       return false;
     }
-    showToast("Payment received — activating your plan…");
-    // The webhook activates the plan asynchronously; wait for it (up to ~12s).
-    let active = false;
-    for (let i = 0; i < 8; i++) {
-      await new Promise((r) => setTimeout(r, 1500));
-      try {
-        const { subscription } = await apiGetSubscription();
-        if (subscription && subscription.status === "active") { applySub(toAppSub(subscription)); active = true; break; }
-      } catch { /* keep polling */ }
-    }
-    if (!active) {
-      showToast("Plan is activating — your number will appear once it's ready.", "error");
-      refreshSubscription();
-      return false;
-    }
-    // Plan is active → the first number on it is free.
-    return buyNumber(n, { kind: "local", free: true });
-  }, [state.user, showToast, applySub, buyNumber, refreshSubscription, subscribe]);
+  }, [subscribe, buyNumber, showToast]);
 
   // Toggle wallet-funded auto-renew for the active plan.
   const setAutoRenew: Store["setAutoRenew"] = useCallback(async (on) => {

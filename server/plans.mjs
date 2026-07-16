@@ -24,9 +24,9 @@ export const OVERFLOW_RATES = { voice: 0.015, sms: 0.015 };
 // Each bundle includes ONE free number and allows a capped number of extra
 // numbers (billed at NUMBER_RENTAL) that all share the plan's minute/SMS pool.
 export const BUNDLES = {
-  starter: { id: "starter", name: "Starter", monthly: 9.99, annualTotal: 99, numberType: "local", minutes: 300, sms: 300, numbersIncluded: 1, maxNumbers: 3 },
-  business: { id: "business", name: "Business", monthly: 24.99, annualTotal: 249, numberType: "local", minutes: 1000, sms: 1000, numbersIncluded: 1, maxNumbers: 5 },
-  pro: { id: "pro", name: "Pro", monthly: 49.99, annualTotal: 499, numberType: "tollfree", minutes: 3000, sms: 3000, numbersIncluded: 1, maxNumbers: 10 },
+  starter: { id: "starter", name: "Starter", monthly: 9.99, annualTotal: 99, numberType: "local", minutes: 300, sms: 300, numbersIncluded: 0, maxNumbers: 3 },
+  business: { id: "business", name: "Business", monthly: 24.99, annualTotal: 249, numberType: "local", minutes: 1000, sms: 1000, numbersIncluded: 0, maxNumbers: 5 },
+  pro: { id: "pro", name: "Pro", monthly: 49.99, annualTotal: 499, numberType: "tollfree", minutes: 3000, sms: 3000, numbersIncluded: 0, maxNumbers: 10 },
 };
 
 /** Look up a bundle by tier id. Returns the bundle or null. */
