@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { BellRing, X } from "lucide-react";
 import { gradients, font } from "../core/theme";
 import { useApp } from "../store/AppStore";
-import { initWebPush } from "../services/push";
+import { requestPushPermission } from "../services/push";
 
 /**
  * Prominent top bar shown while call notifications aren't allowed yet.
@@ -35,13 +35,15 @@ export function NotifyBar() {
   if (!state.user || hidden || perm === "unsupported" || perm === "granted") return null;
   const denied = perm === "denied";
 
+  // MUST run requestPermission as the FIRST await inside the click — awaiting
+  // anything else first loses the user-gesture and the popup gets suppressed.
   const allow = async () => {
     if (busy || denied) return;
     setBusy(true);
-    try { await initWebPush(); } finally {
-      setPerm("Notification" in window ? Notification.permission : "unsupported");
-      setBusy(false);
-    }
+    try {
+      const p = await requestPushPermission();
+      setPerm(p === "unsupported" ? "unsupported" : p);
+    } finally { setBusy(false); }
   };
 
   return (
@@ -55,12 +57,17 @@ export function NotifyBar() {
       <p style={{ flex: 1, fontSize: 12.5, fontWeight: 700, lineHeight: 1.35 }}>
         {denied
           ? "Notifications are blocked — tap the lock icon in your browser's address bar and allow notifications to get incoming-call alerts."
-          : busy ? "Requesting permission…" : "Never miss a call — allow notifications to get call alerts even when this tab is in the background."}
+          : busy ? "Waiting for the browser's permission popup…" : "Never miss a call — get call alerts even when this tab is in the background."}
       </p>
       {!denied && (
-        <span style={{ fontSize: 12.5, fontWeight: 800, background: "rgba(255,255,255,0.24)", padding: "7px 14px", borderRadius: 9, flexShrink: 0 }}>
-          {busy ? "…" : "Allow"}
-        </span>
+        <button onClick={(e) => { e.stopPropagation(); allow(); }} disabled={busy} style={{
+          fontSize: 13, fontWeight: 800, fontFamily: font.sans, color: "#4f46e5",
+          background: "#fff", border: "none", padding: "8px 16px", borderRadius: 10,
+          cursor: busy ? "wait" : "pointer", flexShrink: 0, boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+          display: "flex", alignItems: "center", gap: 6,
+        }}>
+          <BellRing size={14} /> {busy ? "Opening…" : "Allow notifications"}
+        </button>
       )}
       <button onClick={(e) => { e.stopPropagation(); setHidden(true); }} title="Dismiss"
         style={{ background: "transparent", border: "none", cursor: "pointer", padding: 4, flexShrink: 0, display: "flex" }}>
