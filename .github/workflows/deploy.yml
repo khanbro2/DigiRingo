@@ -66,9 +66,19 @@ jobs:
           SSH_PORT: "65002"
           BASE: domains/digiringo.com/public_html
         run: |
-          SSH="ssh -i ~/.ssh/deploy_key -p $SSH_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ServerAliveInterval=15 $SSH_USER@$SSH_HOST"
-          echo '→ testing SSH auth…'
-          $SSH 'echo SSH_OK'
+          # Fail loudly + clearly if the pasted secret isn't a valid private key.
+          if ! ssh-keygen -y -f ~/.ssh/deploy_key >/dev/null 2>&1; then
+            echo "::error::HOSTINGER_SSH_KEY is not a valid private key — re-copy the ENTIRE key file including the '-----BEGIN' and '-----END' lines into the secret."
+            exit 1
+          fi
+          echo "✓ deploy key parses OK ($(ssh-keygen -lf ~/.ssh/deploy_key 2>/dev/null | awk '{print $1, $4}'))"
+          SSH="ssh -i ~/.ssh/deploy_key -p $SSH_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ServerAliveInterval=15 -o ConnectTimeout=25 $SSH_USER@$SSH_HOST"
+          echo '→ testing SSH auth (verbose on failure)…'
+          if ! $SSH 'echo SSH_OK'; then
+            echo "::warning::SSH test failed — verbose handshake follows:"
+            ssh -v -i ~/.ssh/deploy_key -p $SSH_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=25 -o BatchMode=yes "$SSH_USER@$SSH_HOST" 'echo SSH_OK' 2>&1 | grep -iE 'debug1: (Connecting|Connection|Authenticat|Offering|Server accepts)|Permission denied|refused|timed out|reset|no matching' || true
+            exit 1
+          fi
           echo '→ shipping front-end (dist)…'
           tar czf - -C dist . | $SSH "mkdir -p $BASE/dist && tar xzf - -C $BASE/dist --no-same-owner"
           echo '→ shipping server code (.mjs + migrations)…'
