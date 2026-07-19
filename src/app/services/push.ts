@@ -1,6 +1,6 @@
 /**
  * Web Push — subscribe the browser so incoming-call alerts arrive even when the
- * DGRINGO tab is backgrounded/minimized (the service worker shows the
+ * DIGIRINGO tab is backgrounded/minimized (the service worker shows the
  * notification). Web-only: on the native Capacitor app this no-ops (native push
  * is FCM, handled separately). Best-effort — never throws.
  *

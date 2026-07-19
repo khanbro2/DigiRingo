@@ -1,8 +1,8 @@
 name: Build Android App (APK)
 
-# Builds an installable DGRINGO debug APK in the cloud — no local Android toolchain
+# Builds an installable DIGIRINGO debug APK in the cloud — no local Android toolchain
 # needed. Runs on every push to main, or on demand via the "Run workflow" button.
-# The APK is attached to the run as a downloadable artifact ("dgringo-apk").
+# The APK is attached to the run as a downloadable artifact ("digiringo-apk").
 
 on:
   push:
@@ -64,7 +64,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dgringo-apk
+          name: digiringo-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
@@ -88,10 +88,10 @@ jobs:
       - name: Build release AAB
         if: steps.signing.outputs.ready == 'true'
         env:
-          DGRINGO_KEYSTORE_PATH: ${{ runner.temp }}/upload.jks
-          DGRINGO_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          DGRINGO_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          DGRINGO_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          DIGIRINGO_KEYSTORE_PATH: ${{ runner.temp }}/upload.jks
+          DIGIRINGO_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          DIGIRINGO_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          DIGIRINGO_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           cd android
           ./gradlew bundleRelease --no-daemon --stacktrace
@@ -100,7 +100,7 @@ jobs:
         if: steps.signing.outputs.ready == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: dgringo-aab
+          name: digiringo-aab
           path: android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
 

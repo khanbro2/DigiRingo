@@ -1,6 +1,6 @@
 {
   "appId": "com.digiringo.app",
-  "appName": "DGRINGO",
+  "appName": "DIGIRINGO",
   "webDir": "dist",
   "android": {
     "allowMixedContent": false

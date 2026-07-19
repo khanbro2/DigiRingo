@@ -42,7 +42,7 @@ export function FeaturesPage() {
           </Reveal>
           <Reveal delay={150}>
             <p className="dg-lead" style={{ marginTop: 22, maxWidth: 600, margin: "22px auto 0" }}>
-              Every detail of DGRINGO is designed so a second phone number feels as natural as the
+              Every detail of DIGIRINGO is designed so a second phone number feels as natural as the
               one you were born with. Here’s what’s inside.
             </p>
           </Reveal>
@@ -104,7 +104,7 @@ export function FeaturesPage() {
             <SectionIntro
               eyebrow="And more"
               title="The little things that add up"
-              lead="Thoughtful touches that make DGRINGO a joy to use every day."
+              lead="Thoughtful touches that make DIGIRINGO a joy to use every day."
             />
           </Reveal>
           <div className="dg-grid dg-grid-4" style={{ marginTop: 52 }}>

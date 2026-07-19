@@ -10,7 +10,7 @@ export function SignupPage() {
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    // Account creation completes inside the DGRINGO app.
+    // Account creation completes inside the DIGIRINGO app.
     window.location.href = "/app";
   };
 

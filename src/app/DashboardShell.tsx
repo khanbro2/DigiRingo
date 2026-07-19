@@ -158,7 +158,7 @@ export function DashboardShell() {
             <Phone size={17} color="#fff" />
           </div>
           <div>
-            <div style={{ color: C.text, fontSize: 16, fontWeight: 800, letterSpacing: 0.3 }}>DGRINGO</div>
+            <div style={{ color: C.text, fontSize: 16, fontWeight: 800, letterSpacing: 0.3 }}>DIGIRINGO</div>
             <div style={{ color: C.faint, fontSize: 10.5, fontWeight: 600, letterSpacing: 0.4 }}>WORKSPACE</div>
           </div>
         </div>

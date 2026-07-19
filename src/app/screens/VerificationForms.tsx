@@ -174,8 +174,8 @@ export function BrandForm({ onClose, desktop = false }: { onClose: () => void; d
         </p>
       </div>
       <Select label="Business type" value={f.entityType} onChange={(v) => set("entityType")(v)} options={ENTITY_TYPES} />
-      <Text label="Legal business name" value={f.companyName} onChange={set("companyName")} placeholder="DGRINGO LLC" />
-      <Text label="Brand / display name" value={f.displayName} onChange={set("displayName")} placeholder="DGRINGO" />
+      <Text label="Legal business name" value={f.companyName} onChange={set("companyName")} placeholder="DIGIRINGO LLC" />
+      <Text label="Brand / display name" value={f.displayName} onChange={set("displayName")} placeholder="DIGIRINGO" />
       {!sole && (
         <Row desktop={desktop}>
           <Text label="EIN / Tax ID" value={f.ein} onChange={set("ein")} placeholder="12-3456789" />
@@ -218,15 +218,15 @@ export function CampaignForm({ numberId, onClose, desktop = false }: { numberId:
   const [f, setF] = useState<CampaignRegistration>({
     usecase: "MIXED",
     description: "Transactional and customer-service messages to people who opted in through our app.",
-    messageFlow: "Users opt in by creating an account in the DGRINGO app and confirming their number.",
-    sample1: "Your DGRINGO verification code is 123456.",
+    messageFlow: "Users opt in by creating an account in the DIGIRINGO app and confirming their number.",
+    sample1: "Your DIGIRINGO verification code is 123456.",
     sample2: "Hi! Your number is active. Reply STOP to unsubscribe.",
     optinKeywords: "START, YES",
-    optinMessage: "You're subscribed to DGRINGO alerts. Reply HELP for help, STOP to cancel.",
+    optinMessage: "You're subscribed to DIGIRINGO alerts. Reply HELP for help, STOP to cancel.",
     optoutKeywords: "STOP, UNSUBSCRIBE, CANCEL",
     optoutMessage: "You've been unsubscribed and won't receive more messages. Reply START to opt back in.",
     helpKeywords: "HELP, INFO",
-    helpMessage: "DGRINGO support: reply STOP to unsubscribe. Msg&data rates may apply.",
+    helpMessage: "DIGIRINGO support: reply STOP to unsubscribe. Msg&data rates may apply.",
     embeddedLink: false, embeddedPhone: false, ageGated: false, directLending: false, affiliateMarketing: false,
   });
   const set = (k: keyof CampaignRegistration) => (v: string) => setF((p) => ({ ...p, [k]: v }));

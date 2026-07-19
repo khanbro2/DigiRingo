@@ -25,7 +25,7 @@ const OWNED: PhoneNumberDetailed[] = [
 ];
 
 /* messaging profile */
-const PROFILE: MessagingProfile = { id: DEFAULT_MESSAGING_PROFILE_ID, record_type: "messaging_profile", name: "DGRINGO Default", enabled: true };
+const PROFILE: MessagingProfile = { id: DEFAULT_MESSAGING_PROFILE_ID, record_type: "messaging_profile", name: "DIGIRINGO Default", enabled: true };
 
 /* backend messaging store: threads grouped per owned number + contact */
 const THREADS: ConversationThread[] = [

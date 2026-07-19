@@ -79,7 +79,7 @@ export function Footer() {
         </div>
 
         <div className="dg-footer-bottom">
-          <span>© 2026 DGRINGO. All rights reserved.</span>
+          <span>© 2026 DIGIRINGO. All rights reserved.</span>
           <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>Made for a borderless world 🌍</span>
         </div>
       </div>

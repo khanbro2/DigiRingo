@@ -21,12 +21,12 @@ android {
     // (any local build) signingConfigs stays empty and release falls back to
     // unsigned, so a plain `assembleDebug` keeps working with no setup.
     signingConfigs {
-        if (System.getenv("DGRINGO_KEYSTORE_PATH")) {
+        if (System.getenv("DIGIRINGO_KEYSTORE_PATH")) {
             release {
-                storeFile file(System.getenv("DGRINGO_KEYSTORE_PATH"))
-                storePassword System.getenv("DGRINGO_KEYSTORE_PASSWORD")
-                keyAlias System.getenv("DGRINGO_KEY_ALIAS")
-                keyPassword System.getenv("DGRINGO_KEY_PASSWORD")
+                storeFile file(System.getenv("DIGIRINGO_KEYSTORE_PATH"))
+                storePassword System.getenv("DIGIRINGO_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("DIGIRINGO_KEY_ALIAS")
+                keyPassword System.getenv("DIGIRINGO_KEY_PASSWORD")
             }
         }
     }

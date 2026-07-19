@@ -6,7 +6,7 @@ import { Link } from "../router";
 /**
  * Split-screen auth layout: form on the left, a brand-tinted testimonial /
  * trust panel on the right (hidden on mobile). The actual authentication lives
- * in the DGRINGO app — these forms send the user into it at "/".
+ * in the DIGIRINGO app — these forms send the user into it at "/".
  */
 export function AuthShell({
   title,
@@ -71,7 +71,7 @@ function DefaultAside() {
       </div>
       <div style={{ marginTop: 36, padding: 20, borderRadius: 18, background: "rgba(255,255,255,0.04)", border: "1px solid var(--line)" }}>
         <p style={{ fontSize: 15, lineHeight: 1.6 }}>
-          “I keep a US line for work and a UK line for family — all in one app. DGRINGO just
+          “I keep a US line for work and a UK line for family — all in one app. DIGIRINGO just
           replaced two phones.”
         </p>
         <p className="dg-muted" style={{ fontSize: 13, marginTop: 12 }}>— A very happy customer</p>

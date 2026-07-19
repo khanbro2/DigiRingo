@@ -1,7 +1,7 @@
 import { useState, type CSSProperties } from "react";
 
 /**
- * iPhone-style mockup that frames a real DGRINGO app screenshot. Drop captures
+ * iPhone-style mockup that frames a real DIGIRINGO app screenshot. Drop captures
  * into /public/shots (e.g. shots/home.png); until they exist a styled caption
  * placeholder keeps the layout intact. `glow` paints the brand halo behind it.
  */
@@ -24,7 +24,7 @@ export function PhoneFrame({
       {glow && <div className="dg-phone-glow" />}
       <div className="dg-phone-screen">
         {showImg ? (
-          <img src={src} alt={caption ?? "DGRINGO app screen"} onError={() => setFailed(true)} loading="lazy" />
+          <img src={src} alt={caption ?? "DIGIRINGO app screen"} onError={() => setFailed(true)} loading="lazy" />
         ) : (
           <div className="dg-shot-fallback">
             <span style={{ fontSize: 26 }}>📱</span>

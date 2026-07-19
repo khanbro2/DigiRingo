@@ -330,7 +330,7 @@ export async function startCall(destination: string, callerNumber: string | null
     call = client!.newCall({
       destinationNumber: destination,
       callerNumber: caller || undefined,
-      callerName: myName || "DGRINGO",
+      callerName: myName || "DIGIRINGO",
       audio: true, video: false,
       remoteElement: REMOTE_AUDIO_ID,
     }) as unknown as AnyCall;

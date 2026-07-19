@@ -1,5 +1,5 @@
 /**
- * DGRINGO plan catalog — SERVER SIDE (authoritative pricing).
+ * DIGIRINGO plan catalog — SERVER SIDE (authoritative pricing).
  *
  * Mirrors src/app/core/plans.ts. The backend NEVER trusts a price sent by the
  * client: it looks the amount up here. Keep the two files in sync.

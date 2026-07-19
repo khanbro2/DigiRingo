@@ -1,5 +1,5 @@
 /**
- * DGRINGO — Control Hub persistent settings + encrypted secret store.
+ * DIGIRINGO — Control Hub persistent settings + encrypted secret store.
  *
  * Backs the admin Payments / Integrations / Settings pages with REAL storage:
  *   - JSON config  → platform_settings key `cfg:<name>`   (plaintext JSON)

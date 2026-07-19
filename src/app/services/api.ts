@@ -1,5 +1,5 @@
 /**
- * Backend API client for real auth + persistent wallet (DGRINGO server,
+ * Backend API client for real auth + persistent wallet (DIGIRINGO server,
  * `/api/auth/*` and `/api/wallet`). The auth token is stored in localStorage and
  * sent as `Authorization: Bearer <token>` on every request.
  *

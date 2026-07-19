@@ -1,4 +1,4 @@
--- DGRINGO — owned numbers (per-user), so plan number-capacity can be enforced.
+-- DIGIRINGO — owned numbers (per-user), so plan number-capacity can be enforced.
 -- Each bundle includes 1 FREE number and allows a capped number of extra numbers
 -- (billed at the flat rental) that share the plan's minute/SMS pool.
 --

@@ -80,7 +80,7 @@ export function WalletScreen({ onBack, onOpenTrust, desktop }: Props) {
           <p style={{ color: "#fff", fontSize: 46, fontWeight: 800, marginTop: 8, lineHeight: 1, letterSpacing: -1 }}>
             ${Math.floor(state.wallet.balance)}<span style={{ fontSize: 28, fontWeight: 600 }}>.{(state.wallet.balance % 1).toFixed(2).slice(2)}</span>
           </p>
-          <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 8, fontFamily: font.mono }}>DGRINGO Wallet • {state.user?.name}</p>
+          <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 8, fontFamily: font.mono }}>DIGIRINGO Wallet • {state.user?.name}</p>
           <button onClick={() => setSheet(true)} style={{ marginTop: 22, padding: "10px 22px", borderRadius: 12, background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
             <Plus size={15} /> Top Up
           </button>

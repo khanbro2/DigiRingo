@@ -104,7 +104,7 @@ export default function AdminApp() {
         <div style={{ padding: "22px 22px 18px", display: "flex", alignItems: "center", gap: 11 }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, background: gradients.brand, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>📦</div>
           <div>
-            <p style={{ color: A.text, fontSize: 15, fontWeight: 800, lineHeight: 1 }}>DGRINGO</p>
+            <p style={{ color: A.text, fontSize: 15, fontWeight: 800, lineHeight: 1 }}>DIGIRINGO</p>
             <p style={{ color: A.muted, fontSize: 11, marginTop: 3 }}>Control Hub</p>
           </div>
         </div>

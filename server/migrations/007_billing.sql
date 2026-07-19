@@ -1,4 +1,4 @@
--- DGRINGO — card-on-file billing + monthly number renewals.
+-- DIGIRINGO — card-on-file billing + monthly number renewals.
 --
 -- 1) billing_profiles: the user's saved Stripe customer + default card (masked
 --    details only — the PAN never touches our server; Stripe stores the card).

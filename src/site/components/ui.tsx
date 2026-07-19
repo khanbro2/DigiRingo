@@ -2,12 +2,12 @@ import type { ReactNode } from "react";
 import { motion } from "motion/react";
 import { Link } from "../router";
 
-/** DGRINGO wordmark + gradient glyph. */
+/** DIGIRINGO wordmark + gradient glyph. */
 export function Logo({ size = 18 }: { size?: number }) {
   return (
     <Link to="/" className="dg-logo">
       <span className="dg-logo-mark" aria-hidden>D</span>
-      <span style={{ fontSize: size }}>DGRINGO</span>
+      <span style={{ fontSize: size }}>DIGIRINGO</span>
     </Link>
   );
 }

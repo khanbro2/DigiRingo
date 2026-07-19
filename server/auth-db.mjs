@@ -1,5 +1,5 @@
 /**
- * DGRINGO — database layer (MySQL/MariaDB) for real auth + persistent wallet.
+ * DIGIRINGO — database layer (MySQL/MariaDB) for real auth + persistent wallet.
  *
  * The only external dependency in the whole backend. Everything else (password
  * hashing, auth tokens) uses Node's built-in `node:crypto` — no bcrypt/jwt deps.
@@ -660,7 +660,7 @@ export async function setSipCredential(uid, { sipUsername, sipCredentialId }) {
   );
 }
 
-/** Resolve who owns a DGRINGO number + their call-routing settings, for inbound
+/** Resolve who owns a DIGIRINGO number + their call-routing settings, for inbound
  *  TeXML routing. Matches on the E.164 of an active number. */
 export async function findNumberOwner(e164) {
   const norm = onlyDigitsPlus(e164);

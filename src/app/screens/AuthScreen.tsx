@@ -49,7 +49,7 @@ export function AuthScreen() {
           background: gradients.brand, display: "flex", alignItems: "center",
           justifyContent: "center", fontSize: 30, boxShadow: "0 12px 36px rgba(79,142,247,0.4)",
         }}>📦</div>
-        <h1 style={{ color: C.text, fontSize: 26, fontWeight: 800 }}>DGRINGO</h1>
+        <h1 style={{ color: C.text, fontSize: 26, fontWeight: 800 }}>DIGIRINGO</h1>
         <p style={{ color: C.muted, fontSize: 13, marginTop: 6 }}>
           {forgot ? "Reset your password" : mode === "signup" ? "Create your workspace" : "Log in to your workspace"}
         </p>
@@ -117,7 +117,7 @@ export function AuthScreen() {
           </button>
 
           <p style={{ color: C.faint, fontSize: 11, textAlign: "center", marginTop: 18, lineHeight: 1.6 }}>
-            By continuing you agree to DGRINGO's<br />Terms of Service and Privacy Policy.
+            By continuing you agree to DIGIRINGO's<br />Terms of Service and Privacy Policy.
           </p>
         </>
       )}

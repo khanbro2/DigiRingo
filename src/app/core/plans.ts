@@ -1,5 +1,5 @@
 /**
- * DGRINGO plan catalog — the app's canonical pricing (mirrors server/plans.mjs
+ * DIGIRINGO plan catalog — the app's canonical pricing (mirrors server/plans.mjs
  * and the marketing site's src/site/data.ts). Prices are in USD.
  *
  * Two ways to pay for service:

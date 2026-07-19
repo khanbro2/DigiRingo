@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 
 /**
  * Interactive "pixel ripple" canvas background (inspired by 21st.dev's
- * pixel-perfect-hero, rebuilt in DGRINGO's blue/purple identity). A grid of
+ * pixel-perfect-hero, rebuilt in DIGIRINGO's blue/purple identity). A grid of
  * brand-coloured pixels shimmers ambiently, lights up near the pointer, and
  * sends an expanding ripple wave on click. Pauses when off-screen and honours
  * prefers-reduced-motion (renders a faint static grid instead).

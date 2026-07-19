@@ -3,8 +3,8 @@ import { Mail, MessageSquare, MapPin, Send, Check } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 
 const CHANNELS = [
-  { icon: Mail, title: "Email us", body: "support@dgringo.app", sub: "We reply within 24 hours." },
-  { icon: MessageSquare, title: "Live chat", body: "In-app support", sub: "Available right inside DGRINGO." },
+  { icon: Mail, title: "Email us", body: "support@digiringo.app", sub: "We reply within 24 hours." },
+  { icon: MessageSquare, title: "Live chat", body: "In-app support", sub: "Available right inside DIGIRINGO." },
   { icon: MapPin, title: "Where we are", body: "Remote-first", sub: "Serving customers worldwide 🌍" },
 ];
 

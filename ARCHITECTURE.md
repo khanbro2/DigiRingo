@@ -1,6 +1,6 @@
-# DGRINGO — Architecture & Cross-platform guide
+# DIGIRINGO — Architecture & Cross-platform guide
 
-DGRINGO is a React + Vite app structured so the **same codebase ships to web,
+DIGIRINGO is a React + Vite app structured so the **same codebase ships to web,
 Android and iOS** with no rewrite. The mobile packaging path is **Capacitor**
 (it wraps this exact web build in a native shell).
 
@@ -87,7 +87,7 @@ services/telnyx/
 talks to YOUR backend proxy, which injects the key server-side:
 
 ```
-DGRINGO app ──/api/telnyx/*──▶ your proxy ──Bearer KEY──▶ api.telnyx.com/v2/*
+DIGIRINGO app ──/api/telnyx/*──▶ your proxy ──Bearer KEY──▶ api.telnyx.com/v2/*
 ```
 
 - **Mock mode (default):** `VITE_TELNYX_MODE=mock` — the app runs fully with no
@@ -132,7 +132,7 @@ Telnyx feature → app mapping:
 
 ```bash
 pnpm add -D @capacitor/cli @capacitor/core
-pnpm exec cap init DGRINGO app.dgringo.mobile --web-dir=dist
+pnpm exec cap init DIGIRINGO app.digiringo.mobile --web-dir=dist
 pnpm build                 # produces dist/
 pnpm exec cap add android  # + cap add ios  (iOS needs macOS/Xcode)
 pnpm exec cap sync

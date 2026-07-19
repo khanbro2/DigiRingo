@@ -34,7 +34,7 @@ export function ResetPage() {
     <div className="dg-shell" style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 400, position: "relative", zIndex: 1 }}>
         <div className="dg-logo" style={{ marginBottom: 6 }}>
-          <span className="dg-logo-mark" aria-hidden>D</span><span style={{ fontSize: 18 }}>DGRINGO</span>
+          <span className="dg-logo-mark" aria-hidden>D</span><span style={{ fontSize: 18 }}>DIGIRINGO</span>
         </div>
 
         {!token ? (
@@ -56,7 +56,7 @@ export function ResetPage() {
         ) : (
           <>
             <h1 className="dg-h2" style={{ fontSize: 28, marginTop: 20 }}>Set a new password</h1>
-            <p className="dg-lead" style={{ fontSize: 14.5, marginTop: 10 }}>Choose a new password for your DGRINGO account.</p>
+            <p className="dg-lead" style={{ fontSize: 14.5, marginTop: 10 }}>Choose a new password for your DIGIRINGO account.</p>
             <div className="dg-field" style={{ marginTop: 22 }}>
               <label className="dg-label">New password</label>
               <input className="dg-input" type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="At least 6 characters" />

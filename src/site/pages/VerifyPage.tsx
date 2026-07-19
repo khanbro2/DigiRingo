@@ -33,7 +33,7 @@ export function VerifyPage() {
     <div className="dg-shell" style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 400, position: "relative", zIndex: 1, textAlign: "center" }}>
         <div className="dg-logo" style={{ marginBottom: 6, justifyContent: "center" }}>
-          <span className="dg-logo-mark" aria-hidden>D</span><span style={{ fontSize: 18 }}>DGRINGO</span>
+          <span className="dg-logo-mark" aria-hidden>D</span><span style={{ fontSize: 18 }}>DIGIRINGO</span>
         </div>
 
         {state === "verifying" && (

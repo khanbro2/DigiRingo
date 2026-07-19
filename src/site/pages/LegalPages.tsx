@@ -43,14 +43,14 @@ export function TermsPage() {
   return (
     <LegalLayout title="Terms of Service">
       <P>
-        Welcome to DGRINGO. These Terms of Service ("Terms") govern your access to and use of the
-        DGRINGO apps, websites and services (the "Service"). By creating an account or using the
+        Welcome to DIGIRINGO. These Terms of Service ("Terms") govern your access to and use of the
+        DIGIRINGO apps, websites and services (the "Service"). By creating an account or using the
         Service you agree to these Terms. If you do not agree, do not use the Service.
       </P>
 
       <H>1. The Service</H>
       <P>
-        DGRINGO provides virtual local phone numbers and lets you make and receive calls and text
+        DIGIRINGO provides virtual local phone numbers and lets you make and receive calls and text
         messages through an app. Telephony is delivered through third-party carriers (including
         Telnyx). Availability of numbers and features varies by country and is subject to carrier
         and regulatory rules.
@@ -110,7 +110,7 @@ export function TermsPage() {
       <P>
         The Service is provided "as is" without warranties of any kind. We do not guarantee
         uninterrupted or error-free service, message delivery, or call quality. To the maximum extent
-        permitted by law, DGRINGO is not liable for indirect, incidental or consequential damages, and
+        permitted by law, DIGIRINGO is not liable for indirect, incidental or consequential damages, and
         our total liability is limited to the amount you paid us in the 3 months before the claim.
       </P>
 
@@ -122,7 +122,7 @@ export function TermsPage() {
       </P>
 
       <H>10. Contact</H>
-      <P>Questions about these Terms? Email us at support@dgringo.app.</P>
+      <P>Questions about these Terms? Email us at support@digiringo.app.</P>
     </LegalLayout>
   );
 }
@@ -132,7 +132,7 @@ export function PrivacyPage() {
   return (
     <LegalLayout title="Privacy Policy">
       <P>
-        This Privacy Policy explains what information DGRINGO collects, how we use it, and your
+        This Privacy Policy explains what information DIGIRINGO collects, how we use it, and your
         choices. By using the Service you agree to this policy.
       </P>
 
@@ -196,7 +196,7 @@ export function PrivacyPage() {
       </P>
 
       <H>10. Contact</H>
-      <P>Privacy questions? Email support@dgringo.app.</P>
+      <P>Privacy questions? Email support@digiringo.app.</P>
     </LegalLayout>
   );
 }

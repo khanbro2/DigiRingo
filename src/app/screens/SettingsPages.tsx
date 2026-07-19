@@ -184,7 +184,7 @@ export function CallForwardingPage({ onBack }: { onBack: () => void }) {
     <SettingsShell title="Call forwarding" onBack={onBack}>
       <div style={{ padding: "0 20px 8px" }}>
         <p style={{ color: C.muted, fontSize: 13, lineHeight: 1.55, marginBottom: 16 }}>
-          When someone calls your DGRINGO number{activeNum ? ` (${activeNum})` : ""}, we ring the app first.
+          When someone calls your DIGIRINGO number{activeNum ? ` (${activeNum})` : ""}, we ring the app first.
           If the app is closed, the call forwards to your real phone below — so you never miss a call.
           If no one answers, the caller can leave a voicemail.
         </p>

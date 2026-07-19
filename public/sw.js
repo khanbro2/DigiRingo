@@ -1,8 +1,8 @@
-/* DGRINGO service worker — minimal, network-first. Its main job is to make the
+/* DIGIRINGO service worker — minimal, network-first. Its main job is to make the
  * app installable (PWA / wrappable as an APK). The server stays the source of
  * truth: we never cache /api/* and always try the network first, falling back to
  * cache only when offline. */
-const CACHE = "dgringo-shell-v1";
+const CACHE = "digiringo-shell-v1";
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));

@@ -1,5 +1,5 @@
 /**
- * Marketing content for the DGRINGO site. Kept in one place so copy/pricing can
+ * Marketing content for the DIGIRINGO site. Kept in one place so copy/pricing can
  * be tuned without touching layout. `shot` paths point at /public/shots/*.png —
  * real app captures (see scripts that screenshot the running app).
  */
@@ -70,7 +70,7 @@ export const STEPS = [
 ];
 
 /**
- * DGRINGO pricing — mirrors the app's canonical catalog (src/app/core/plans.ts).
+ * DIGIRINGO pricing — mirrors the app's canonical catalog (src/app/core/plans.ts).
  * Keep the two in sync: these are the numbers shown to customers, the app charges
  * from the same values.
  *
@@ -153,12 +153,12 @@ export const USAGE_RATES = [
 
 export const FAQS = [
   {
-    q: "What exactly is DGRINGO?",
-    a: "DGRINGO is an app that gives you real local phone numbers in multiple countries. You can call and text from them just like a normal SIM line — but everything lives in one simple app, with no physical SIM or contract.",
+    q: "What exactly is DIGIRINGO?",
+    a: "DIGIRINGO is an app that gives you real local phone numbers in multiple countries. You can call and text from them just like a normal SIM line — but everything lives in one simple app, with no physical SIM or contract.",
   },
   {
     q: "Do I need a SIM card or a second phone?",
-    a: "No. DGRINGO works entirely over the internet on the phone you already own. Add as many numbers as you like without swapping SIMs or carrying another device.",
+    a: "No. DIGIRINGO works entirely over the internet on the phone you already own. Add as many numbers as you like without swapping SIMs or carrying another device.",
   },
   {
     q: "Which countries are available?",
@@ -182,7 +182,7 @@ export const FAQS = [
   },
   {
     q: "Is it available on iPhone and Android?",
-    a: "DGRINGO is built cross-platform and ships to both iOS and Android, with the same clean experience on every device.",
+    a: "DIGIRINGO is built cross-platform and ships to both iOS and Android, with the same clean experience on every device.",
   },
 ];
 

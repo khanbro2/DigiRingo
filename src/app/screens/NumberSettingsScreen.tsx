@@ -61,7 +61,7 @@ export function NumberSettingsScreen({ numberId, onBack, onOpenTrust }: Props) {
       <Group title="Call & message handling">
         <ToggleRow label="Business hours"            on={n.settings.businessHours} onClick={() => toggle("businessHours")} />
         <ToggleRow label="Auto record calls"         on={n.settings.autoRecord}    onClick={() => toggle("autoRecord")} />
-        <ToggleRow label="Call transcripts"          on={n.settings.transcripts}   onClick={() => toggle("transcripts")} sub="Powered by DGRINGO AI ✨" />
+        <ToggleRow label="Call transcripts"          on={n.settings.transcripts}   onClick={() => toggle("transcripts")} sub="Powered by DIGIRINGO AI ✨" />
         <ToggleRow label="Forward all calls"         on={n.settings.forwardAll}    onClick={() => toggle("forwardAll")} />
       </Group>
 

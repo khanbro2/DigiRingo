@@ -21,5 +21,5 @@ export const TELNYX_MODE: "mock" | "live" =
 export const API_BASE: string = API_ORIGIN + (env.VITE_API_BASE ?? "/api/telnyx");
 
 /** The messaging profile / brand used by the workspace (set after onboarding). */
-export const DEFAULT_MESSAGING_PROFILE_ID = env.VITE_TELNYX_MESSAGING_PROFILE_ID ?? "mp_dgringo_default";
-export const DEFAULT_CONNECTION_ID = env.VITE_TELNYX_CONNECTION_ID ?? "conn_dgringo_default";
+export const DEFAULT_MESSAGING_PROFILE_ID = env.VITE_TELNYX_MESSAGING_PROFILE_ID ?? "mp_digiringo_default";
+export const DEFAULT_CONNECTION_ID = env.VITE_TELNYX_CONNECTION_ID ?? "conn_digiringo_default";

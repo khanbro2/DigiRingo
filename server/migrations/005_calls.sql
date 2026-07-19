@@ -1,4 +1,4 @@
--- DGRINGO — per-user call history, so the Calls log + Recents survive refresh.
+-- DIGIRINGO — per-user call history, so the Calls log + Recents survive refresh.
 -- WebRTC calls don't reliably appear in Telnyx CDRs (esp. credential-connection
 -- calls), so we persist each finished call ourselves.
 --

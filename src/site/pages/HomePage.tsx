@@ -125,7 +125,7 @@ export function HomePage() {
             <SectionIntro
               eyebrow="Everything you need"
               title={<>One app. <span className="dg-grad-text">Every number you’ll ever need.</span></>}
-              lead="From your first local line to a full business presence across continents — DGRINGO keeps it effortless."
+              lead="From your first local line to a full business presence across continents — DIGIRINGO keeps it effortless."
             />
           </Reveal>
           <div className="dg-grid dg-grid-3" style={{ marginTop: 56 }}>
@@ -205,7 +205,7 @@ export function HomePage() {
                 Ready to claim your <span className="dg-grad-text">borderless number?</span>
               </h2>
               <p className="dg-lead" style={{ margin: "20px auto 0", maxWidth: 520 }}>
-                Join DGRINGO today. Your first number is minutes away.
+                Join DIGIRINGO today. Your first number is minutes away.
               </p>
               <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 32, flexWrap: "wrap" }}>
                 <LinkButton to="/signup" variant="primary" size="lg">

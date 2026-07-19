@@ -79,7 +79,7 @@ export function SettingsScreen({ go }: Props) {
         </button>
       </div>
 
-      <p style={{ textAlign: "center", color: C.muted, fontSize: 11, opacity: 0.6, paddingBottom: 80 }}>DGRINGO v2.3.0 · Made with ♥</p>
+      <p style={{ textAlign: "center", color: C.muted, fontSize: 11, opacity: 0.6, paddingBottom: 80 }}>DIGIRINGO v2.3.0 · Made with ♥</p>
     </div>
   );
 }

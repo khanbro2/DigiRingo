@@ -9,7 +9,7 @@ export function LoginPage() {
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    // Real authentication lives in the DGRINGO app — hand off to it.
+    // Real authentication lives in the DIGIRINGO app — hand off to it.
     window.location.href = "/app";
   };
 
@@ -17,7 +17,7 @@ export function LoginPage() {
     <AuthShell
       title="Welcome back"
       subtitle="Log in to manage your numbers, inbox and wallet."
-      footer={<>New to DGRINGO? <Link to="/signup" style={{ color: "var(--blue)", fontWeight: 600 }}>Create an account</Link></>}
+      footer={<>New to DIGIRINGO? <Link to="/signup" style={{ color: "var(--blue)", fontWeight: 600 }}>Create an account</Link></>}
     >
       <div className="dg-social">
         <button type="button" className="dg-social-btn" onClick={() => (window.location.href = "/app")}>

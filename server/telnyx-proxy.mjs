@@ -1,5 +1,5 @@
 /**
- * DGRINGO — Telnyx backend proxy + inbox store (Node 18+, zero dependencies).
+ * DIGIRINGO — Telnyx backend proxy + inbox store (Node 18+, zero dependencies).
  *
  * Two jobs:
  *  1) PROXY  — the app calls /api/telnyx/* on YOUR origin; this server forwards
@@ -63,12 +63,12 @@ try {
 async function sendResetEmail(to, name, link) {
   if (!mailer) throw new Error("Email is not configured");
   await mailer.sendMail({
-    from: process.env.SMTP_FROM || `DGRINGO <${process.env.SMTP_USER}>`,
+    from: process.env.SMTP_FROM || `DIGIRINGO <${process.env.SMTP_USER}>`,
     to,
-    subject: "Reset your DGRINGO password",
+    subject: "Reset your DIGIRINGO password",
     html: `<div style="font-family:Inter,Arial,sans-serif;max-width:480px;margin:auto;padding:8px">
       <h2 style="color:#0a1b3d">Reset your password</h2>
-      <p style="color:#475">Hi ${name || "there"}, we got a request to reset your DGRINGO password.
+      <p style="color:#475">Hi ${name || "there"}, we got a request to reset your DIGIRINGO password.
       Click the button below to choose a new one. This link expires in 1 hour.</p>
       <p style="margin:26px 0"><a href="${link}" style="background:linear-gradient(120deg,#4f8ef7,#9b6ff7);color:#fff;text-decoration:none;padding:13px 26px;border-radius:10px;font-weight:700;display:inline-block">Reset password</a></p>
       <p style="color:#889;font-size:13px">If you didn't request this, you can safely ignore this email — your password won't change.</p>
@@ -80,15 +80,15 @@ async function sendResetEmail(to, name, link) {
 async function sendVerifyEmail(to, name, link) {
   if (!mailer) throw new Error("Email is not configured");
   await mailer.sendMail({
-    from: process.env.SMTP_FROM || `DGRINGO <${process.env.SMTP_USER}>`,
+    from: process.env.SMTP_FROM || `DIGIRINGO <${process.env.SMTP_USER}>`,
     to,
-    subject: "Verify your DGRINGO email",
+    subject: "Verify your DIGIRINGO email",
     html: `<div style="font-family:Inter,Arial,sans-serif;max-width:480px;margin:auto;padding:8px">
-      <h2 style="color:#0a1b3d">Welcome to DGRINGO 👋</h2>
+      <h2 style="color:#0a1b3d">Welcome to DIGIRINGO 👋</h2>
       <p style="color:#475">Hi ${name || "there"}, thanks for signing up! Please confirm this is your
       email address by clicking the button below. This link expires in 24 hours.</p>
       <p style="margin:26px 0"><a href="${link}" style="background:linear-gradient(120deg,#4f8ef7,#9b6ff7);color:#fff;text-decoration:none;padding:13px 26px;border-radius:10px;font-weight:700;display:inline-block">Verify email</a></p>
-      <p style="color:#889;font-size:13px">If you didn't create a DGRINGO account, you can safely ignore this email.</p>
+      <p style="color:#889;font-size:13px">If you didn't create a DIGIRINGO account, you can safely ignore this email.</p>
       <p style="color:#aab;font-size:12px;word-break:break-all">Or paste this link: ${link}</p>
     </div>`,
   });
@@ -102,7 +102,7 @@ const bearer = (req) => {
 // Admin (Control Hub) auth — a single shared password (ADMIN_PASSWORD) gates the
 // dashboard; sessions are short-lived HMAC tokens. No DB needed.
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-const ADMIN_SECRET = process.env.AUTH_SECRET || "dgringo-admin-secret-change-me";
+const ADMIN_SECRET = process.env.AUTH_SECRET || "digiringo-admin-secret-change-me";
 const adminHmac = (s) => createHmac("sha256", ADMIN_SECRET).update(String(s)).digest();
 function signAdminToken() {
   const payload = Buffer.from(JSON.stringify({ admin: true, exp: Date.now() + 12 * 3600 * 1000 })).toString("base64url");
@@ -167,7 +167,7 @@ const nowId = () => Date.now().toString(36) + createHmac("sha256", ADMIN_SECRET)
 // Secrets the dashboard is allowed to store (encrypted). These override the env.
 const ALLOWED_SECRETS = new Set(["TELNYX_API_KEY", "STRIPE_SECRET_KEY", "STRIPE_PUBLISHABLE_KEY", "STRIPE_WEBHOOK_SECRET", "PAYPAL_CLIENT_SECRET", "SMTP_PASS"]);
 const PROVIDER_SECRET = { stripe: "STRIPE_SECRET_KEY", paypal: "PAYPAL_CLIENT_SECRET" };
-const GENERAL_DEFAULTS = { platformName: "DGRINGO", supportEmail: "support@digiringo.com", currency: "USD", platformFeePct: 0, payoutSchedule: "Daily", payoutDestination: "Stripe" };
+const GENERAL_DEFAULTS = { platformName: "DIGIRINGO", supportEmail: "support@digiringo.com", currency: "USD", platformFeePct: 0, payoutSchedule: "Daily", payoutDestination: "Stripe" };
 
 /** Real status for a secret: a value saved via the Control Hub (encrypted in the
  *  DB) wins, else the live env var. `source` tells the UI which is active. */
@@ -347,7 +347,7 @@ async function ensureOutboundProfileId() {
   const j = await r.json().catch(() => ({}));
   if (j?.data?.[0]?.id) return j.data[0].id;
   const cr = await telnyxFetch("/outbound_voice_profiles", {
-    method: "POST", body: JSON.stringify({ name: "DGRINGO Voice" }),
+    method: "POST", body: JSON.stringify({ name: "DIGIRINGO Voice" }),
   });
   const cj = await cr.json().catch(() => ({}));
   if (!cr.ok || !cj?.data?.id) throw new Error(cj?.errors?.[0]?.detail || "Could not create outbound voice profile");
@@ -355,11 +355,11 @@ async function ensureOutboundProfileId() {
 }
 
 // Resolve the credential connection used for the WebRTC softphone. We use a
-// DEDICATED connection ("DGRINGO WebRTC") with an OVP attached so outbound
+// DEDICATED connection ("DIGIRINGO WebRTC") with an OVP attached so outbound
 // calling works — without touching any pre-existing connection. Auto-created on
 // first use; override with TELNYX_SIP_CONNECTION_ID.
 let SIP_CONN = null;
-const SIP_CONN_NAME = "DGRINGO WebRTC";
+const SIP_CONN_NAME = "DIGIRINGO WebRTC";
 async function getSipConnectionId() {
   if (SIP_CONN) return SIP_CONN;
   if (process.env.TELNYX_SIP_CONNECTION_ID) return (SIP_CONN = process.env.TELNYX_SIP_CONNECTION_ID);
@@ -375,7 +375,7 @@ async function getSipConnectionId() {
     method: "POST",
     body: JSON.stringify({
       connection_name: SIP_CONN_NAME,
-      user_name: `dgringo${rand()}`,
+      user_name: `digiringo${rand()}`,
       password: `Dg${rand()}${rand()}`,
     }),
   });
@@ -402,8 +402,8 @@ async function ensureSipCreds() {
   const connId = await getSipConnectionId();
   // Telnyx requires SIP username/password to be ALPHANUMERIC only (no symbols,
   // no spaces). Hex digests satisfy this.
-  const login = "dgringowebrtc";
-  const password = "Dg" + createHmac("sha256", process.env.AUTH_SECRET || "dgringo")
+  const login = "digiringowebrtc";
+  const password = "Dg" + createHmac("sha256", process.env.AUTH_SECRET || "digiringo")
     .update("sip:" + connId).digest("hex").slice(0, 26);
   // Set the connection's SIP credentials to our known values (idempotent).
   const r = await telnyxFetch(`/credential_connections/${connId}`, {
@@ -424,14 +424,14 @@ async function ensureSipCreds() {
  * inbound, so the TeXML <Dial><Sip> leg rings the right user's softphone. Creds
  * are deterministic (derived from AUTH_SECRET + uid) — nothing secret persisted. */
 const userSipPassword = (uid) =>
-  "Dg" + createHmac("sha256", process.env.AUTH_SECRET || "dgringo").update("sipuser:" + uid).digest("hex").slice(0, 26);
+  "Dg" + createHmac("sha256", process.env.AUTH_SECRET || "digiringo").update("sipuser:" + uid).digest("hex").slice(0, 26);
 
 async function ensureUserSipCredential(uid) {
   const v = await db.getVoiceSettings(uid);
-  const username = `dgringou${uid}`;            // Telnyx SIP usernames must be alphanumeric
+  const username = `digiringou${uid}`;            // Telnyx SIP usernames must be alphanumeric
   const password = userSipPassword(uid);
   // Reuse the stored per-user credential connection if it still exists.
-  if (v.sipCredentialId && String(v.sipUsername || "").startsWith("dgringou")) {
+  if (v.sipCredentialId && String(v.sipUsername || "").startsWith("digiringou")) {
     const chk = await telnyxFetch(`/credential_connections/${v.sipCredentialId}`).catch(() => null);
     if (chk && chk.ok) {
       await telnyxFetch(`/credential_connections/${v.sipCredentialId}`, {
@@ -445,7 +445,7 @@ async function ensureUserSipCredential(uid) {
   // Create a dedicated per-user credential connection (+ OVP so outbound works).
   const ovp = await ensureOutboundProfileId().catch(() => null);
   const cr = await telnyxFetch("/credential_connections", {
-    method: "POST", body: JSON.stringify({ connection_name: `DGRINGO u${uid}`, user_name: username, password, sip_uri_calling_preference: "unrestricted" }),
+    method: "POST", body: JSON.stringify({ connection_name: `DIGIRINGO u${uid}`, user_name: username, password, sip_uri_calling_preference: "unrestricted" }),
   });
   const cj = await cr.json().catch(() => ({}));
   if (!cr.ok || !cj?.data?.id) throw new Error(cj?.errors?.[0]?.detail || "Could not create voice identity");
@@ -464,7 +464,7 @@ async function ensureUserSipCredential(uid) {
  * records voicemail — so a call reaches them whether or not the app is open. */
 const PUBLIC_BASE = (process.env.PUBLIC_BASE_URL || "https://digiringo.com").replace(/\/$/, "");
 let TEXML_APP = null;
-const TEXML_APP_NAME = "DGRINGO Inbound";
+const TEXML_APP_NAME = "DIGIRINGO Inbound";
 async function getTexmlAppId() {
   if (TEXML_APP) return TEXML_APP;
   if (process.env.TELNYX_TEXML_APP_ID) return (TEXML_APP = process.env.TELNYX_TEXML_APP_ID);
@@ -512,7 +512,7 @@ function voicemailTeXML(owner, to, from) {
   if (owner?.voicemailEnabled) {
     const cb = `${PUBLIC_BASE}/webhooks/texml/voicemail?to=${encodeURIComponent(to)}&from=${encodeURIComponent(from)}`;
     return texmlResponse(
-      `  <Say voice="Polly.Joanna">You've reached ${xmlEsc(owner?.name ? owner.name.split(" ")[0] : "a DGRINGO customer")}. Please leave a message after the tone.</Say>\n` +
+      `  <Say voice="Polly.Joanna">You've reached ${xmlEsc(owner?.name ? owner.name.split(" ")[0] : "a DIGIRINGO customer")}. Please leave a message after the tone.</Say>\n` +
       `  <Record maxLength="120" playBeep="true" trim="trim-silence" recordingStatusCallback="${xmlEsc(cb)}" recordingStatusCallbackMethod="POST" />\n` +
       `  <Hangup/>`
     );
@@ -968,7 +968,7 @@ createServer(async (req, res) => {
       let lineItems, metadata = { uid: String(uid) };
       if (g.kind === "topup") {
         const amt = Math.max(1, Math.min(1000, Number(g.amount) || 0)); // clamp $1–$1000
-        lineItems = [{ name: "DGRINGO wallet top-up", amountCents: Math.round(amt * 100) }];
+        lineItems = [{ name: "DIGIRINGO wallet top-up", amountCents: Math.round(amt * 100) }];
         metadata = { ...metadata, kind: "topup", amount: amt.toFixed(2) };
       } else if (g.kind === "plan" || g.kind === "plan_number") {
         const cycle = g.cycle === "annual" ? "annual" : "monthly";
@@ -1717,7 +1717,7 @@ createServer(async (req, res) => {
     send(res, 502, { errors: [{ detail: `Proxy error: ${e.message}` }] });
   }
 }).listen(PORT, () => {
-  console.log(`DGRINGO server listening on :${PORT}`);
+  console.log(`DIGIRINGO server listening on :${PORT}`);
   console.log(`  site     : http://localhost:${PORT}/         (marketing)`);
   console.log(`  app      : http://localhost:${PORT}/app      (mobile app)`);
   console.log(`  admin    : http://localhost:${PORT}/admin    (Control Hub)`);

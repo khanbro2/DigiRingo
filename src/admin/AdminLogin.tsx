@@ -37,7 +37,7 @@ export function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
         <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
           <div style={{ width: 40, height: 40, borderRadius: 11, background: gradients.brand, display: "grid", placeItems: "center", fontSize: 20 }}>📦</div>
           <div>
-            <p style={{ color: A.text, fontSize: 16, fontWeight: 800, lineHeight: 1 }}>DGRINGO</p>
+            <p style={{ color: A.text, fontSize: 16, fontWeight: 800, lineHeight: 1 }}>DIGIRINGO</p>
             <p style={{ color: A.muted, fontSize: 11.5, marginTop: 3 }}>Control Hub</p>
           </div>
         </div>

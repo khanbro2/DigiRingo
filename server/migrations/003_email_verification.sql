@@ -1,4 +1,4 @@
--- DGRINGO — email verification on signup.
+-- DIGIRINGO — email verification on signup.
 -- Run once against the production database:
 --   mysql -h 127.0.0.1 -u <DB_USER> -p <DB_NAME> < server/migrations/003_email_verification.sql
 --

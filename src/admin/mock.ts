@@ -38,7 +38,7 @@ export const REVENUE_6M = [
 ];
 
 export const USERS: AdminUser[] = [
-  { id: "u1", name: "Ali Hassan",      email: "ali@dgringo.app",     plan: "Pro",      numbers: 7, balance: 24.50, status: "active",    joined: "May 1, 2026" },
+  { id: "u1", name: "Ali Hassan",      email: "ali@digiringo.app",     plan: "Pro",      numbers: 7, balance: 24.50, status: "active",    joined: "May 1, 2026" },
   { id: "u2", name: "Sarah Chen",      email: "sarah@brightmail.io",  plan: "Business", numbers: 22, balance: 142.10, status: "active",   joined: "Apr 12, 2026" },
   { id: "u3", name: "Marcus Wright",   email: "m.wright@acme.co",     plan: "Starter",  numbers: 2, balance: 4.20,  status: "trial",     joined: "Jun 9, 2026" },
   { id: "u4", name: "Yuki Tanaka",     email: "yuki@tokyodesk.jp",    plan: "Pro",      numbers: 9, balance: 61.75, status: "active",    joined: "Mar 3, 2026" },

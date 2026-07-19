@@ -21,7 +21,7 @@ const CRED_SECRET: Record<string, string> = {
 
 const EMPTY: AdminConfig = {
   providers: [], credentials: [], platformKeys: [], webhooks: [],
-  general: { platformName: "DGRINGO", supportEmail: "", currency: "USD", platformFeePct: 0, payoutSchedule: "Daily", payoutDestination: "" },
+  general: { platformName: "DIGIRINGO", supportEmail: "", currency: "USD", platformFeePct: 0, payoutSchedule: "Daily", payoutDestination: "" },
 };
 
 interface AdminCtx extends AdminConfig {
