@@ -67,3 +67,43 @@ jobs:
           name: dgringo-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      # --- Play Store bundle -------------------------------------------------
+      # Only runs once the four signing secrets exist, so pushes keep producing a
+      # debug APK until the keystore is configured. Google Play accepts .aab only.
+      - name: Check signing secrets
+        id: signing
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then echo "ready=true" >> "$GITHUB_OUTPUT"
+          else echo "ready=false" >> "$GITHUB_OUTPUT"; echo "::notice::ANDROID_KEYSTORE_BASE64 not set — skipping the release bundle."; fi
+
+      - name: Decode keystore
+        if: steps.signing.outputs.ready == 'true'
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+
+      - name: Build release AAB
+        if: steps.signing.outputs.ready == 'true'
+        env:
+          DGRINGO_KEYSTORE_PATH: ${{ runner.temp }}/upload.jks
+          DGRINGO_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          DGRINGO_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          DGRINGO_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          cd android
+          ./gradlew bundleRelease --no-daemon --stacktrace
+
+      - name: Upload AAB artifact
+        if: steps.signing.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dgringo-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+
+      - name: Remove keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload.jks"

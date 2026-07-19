@@ -25,3 +25,7 @@ Thumbs.db
 .playwright-mcp/
 .vite/
 *.tsbuildinfo
+
+# Android signing keys — never commit
+*.jks
+*.keystore

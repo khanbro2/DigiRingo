@@ -16,10 +16,27 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Play Store upload signing. The keystore never lives in the repo — CI writes
+    // it from a secret and passes the credentials as env vars. When they're absent
+    // (any local build) signingConfigs stays empty and release falls back to
+    // unsigned, so a plain `assembleDebug` keeps working with no setup.
+    signingConfigs {
+        if (System.getenv("DGRINGO_KEYSTORE_PATH")) {
+            release {
+                storeFile file(System.getenv("DGRINGO_KEYSTORE_PATH"))
+                storePassword System.getenv("DGRINGO_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("DGRINGO_KEY_ALIAS")
+                keyPassword System.getenv("DGRINGO_KEY_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (signingConfigs.findByName("release")) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
