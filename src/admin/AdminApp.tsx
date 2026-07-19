@@ -79,7 +79,7 @@ export default function AdminApp() {
       case "support": return <AdminSupport toast={showToast} />;
       case "team": return <AdminTeam toast={showToast} />;
       case "users": return <UsersPage toast={showToast} />;
-      case "numbers": return <NumbersPage />;
+      case "numbers": return <NumbersPage toast={showToast} />;
       case "billing": return <BillingPage toast={showToast} />;
       case "transactions": return <TransactionsPage toast={showToast} />;
       case "telnyx": return <TelnyxPage toast={showToast} />;

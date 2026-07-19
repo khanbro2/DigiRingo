@@ -30,6 +30,8 @@ import { createHmac, timingSafeEqual, createPublicKey, verify as edVerify } from
 import { numberPrice, bundleCharge } from "./plans.mjs";
 import { sendPush, vapidPublicKey, webPushConfigured } from "./webpush.mjs";
 import { createCheckoutSession as stripeCheckout, verifyWebhook as stripeVerify, publishableKey as stripePubKey, stripeConfigured, createCustomer as stripeCreateCustomer, createSetupSession as stripeSetupSession, cardFromIntent as stripeCardFromIntent } from "./stripe.mjs";
+import * as settings from "./settings-store.mjs";
+import { sendFcmToUser, fcmConfigured } from "./fcm.mjs";
 
 // Resolve the app root and load env from a `.env` there (DB creds + all secrets)
 // if present — keeps the deployment self-contained and SSH-configurable.
@@ -137,7 +139,10 @@ function verifyTelnyxWebhook(rawBody, sigB64, timestamp) {
 }
 if (!TELNYX_PUBLIC_KEY) console.warn("⚠ TELNYX_PUBLIC_KEY not set — webhook signatures NOT verified.");
 
-const KEY = process.env.TELNYX_API_KEY;
+// The Telnyx API key: a key saved via the Control Hub (encrypted in the DB) wins,
+// otherwise the env var — so DB management can never remove a working key (empty
+// cache / DB down → env fallback = today's behaviour). Read through telnyxKey().
+const telnyxKey = () => settings.getSecret("TELNYX_API_KEY") || process.env.TELNYX_API_KEY || "";
 // Hostinger (and most PaaS) inject the port to listen on via PORT.
 const PORT = Number(process.env.PORT ?? process.env.TELNYX_PROXY_PORT ?? 8787);
 const TELNYX = "https://api.telnyx.com/v2";
@@ -153,8 +158,54 @@ const PREFIX = "/api/telnyx";
 // The Telnyx key is optional at boot: without it the static site still serves
 // (so the marketing pages are live even before Telnyx is configured); the
 // /api/telnyx/* routes just answer 503 until the key is set in the host's env.
-if (!KEY) {
+if (!telnyxKey()) {
   console.warn("⚠ TELNYX_API_KEY not set — serving site only; /api/telnyx/* will return 503.");
+}
+
+/* ---- Control Hub config (Payments / Integrations / Settings) helpers ---- */
+const nowId = () => Date.now().toString(36) + createHmac("sha256", ADMIN_SECRET).update(String(process.hrtime.bigint())).digest("hex").slice(0, 5);
+// Secrets the dashboard is allowed to store (encrypted). These override the env.
+const ALLOWED_SECRETS = new Set(["TELNYX_API_KEY", "STRIPE_SECRET_KEY", "STRIPE_PUBLISHABLE_KEY", "STRIPE_WEBHOOK_SECRET", "PAYPAL_CLIENT_SECRET", "SMTP_PASS"]);
+const PROVIDER_SECRET = { stripe: "STRIPE_SECRET_KEY", paypal: "PAYPAL_CLIENT_SECRET" };
+const GENERAL_DEFAULTS = { platformName: "DGRINGO", supportEmail: "support@digiringo.com", currency: "USD", platformFeePct: 0, payoutSchedule: "Daily", payoutDestination: "Stripe" };
+
+/** Real status for a secret: a value saved via the Control Hub (encrypted in the
+ *  DB) wins, else the live env var. `source` tells the UI which is active. */
+function secretStatus(name, envVar) {
+  const m = settings.secretMeta(name);
+  if (m.set) return { status: "set", last4: m.last4, source: "dashboard" };
+  const ev = process.env[envVar];
+  if (ev) return { status: "set", last4: String(ev).replace(/\s/g, "").slice(-4), source: "env" };
+  return { status: "missing" };
+}
+function shortDate(iso) { try { return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); } catch { return "—"; } }
+function defaultWebhooks() {
+  return [
+    { id: "wh_telnyx", label: "Telnyx — inbound SMS & DLR", url: "/webhooks/telnyx", enabled: true, secretSet: !!TELNYX_PUBLIC_KEY },
+    { id: "wh_stripe", label: "Stripe — payment events", url: "/api/stripe/webhook", enabled: true, secretSet: secretStatus("STRIPE_WEBHOOK_SECRET", "STRIPE_WEBHOOK_SECRET").status === "set" },
+  ];
+}
+/** Assemble the full Control Hub config from the encrypted store + live env. */
+function buildConfig() {
+  const cred = (id, service, blurb, name, envVar) => ({ id, service, blurb, ...secretStatus(name, envVar) });
+  const credentials = [
+    cred("telnyx", "Telnyx", "Numbers, SMS, voice, 10DLC", "TELNYX_API_KEY", "TELNYX_API_KEY"),
+    cred("stripe", "Stripe", "Payments secret key (sk_live_…)", "STRIPE_SECRET_KEY", "STRIPE_SECRET_KEY"),
+    cred("paypal", "PayPal", "REST client id & secret", "PAYPAL_CLIENT_SECRET", "PAYPAL_CLIENT_SECRET"),
+    cred("smtp", "Email (SMTP)", "Transactional / password-reset email", "SMTP_PASS", "SMTP_PASS"),
+  ];
+  const prov = settings.getJSON("providers", {});
+  const stripeS = secretStatus("STRIPE_SECRET_KEY", "STRIPE_SECRET_KEY");
+  const paypalS = secretStatus("PAYPAL_CLIENT_SECRET", "PAYPAL_CLIENT_SECRET");
+  const providers = [
+    { id: "stripe", name: "Stripe", blurb: "Card payments, subscriptions & payouts", connected: stripeS.status === "set", enabled: prov.stripe?.enabled ?? (stripeS.status === "set"), secretLast4: stripeS.last4, account: prov.stripe?.account || "" },
+    { id: "paypal", name: "PayPal", blurb: "PayPal balance & checkout", connected: paypalS.status === "set", enabled: prov.paypal?.enabled ?? false, secretLast4: paypalS.last4, account: prov.paypal?.account || "" },
+    { id: "bank", name: "Bank transfer", blurb: "Manual / wire top-ups", connected: !!prov.bank?.connected, enabled: prov.bank?.enabled ?? false, account: prov.bank?.account || "" },
+  ];
+  const general = { ...GENERAL_DEFAULTS, ...settings.getJSON("general", {}) };
+  const platformKeys = settings.getJSON("platformKeys", []).map((k) => ({ id: k.id, name: k.name, masked: `pk_live_••••••••${k.last4}`, created: shortDate(k.created), lastUsed: "—" }));
+  const webhooks = settings.getJSON("webhooks", null) || defaultWebhooks();
+  return { providers, credentials, platformKeys, webhooks, general };
 }
 
 /* ------------------------------------------------------------------ helpers */
@@ -280,7 +331,7 @@ const flagFor = (e164) => {
 const telnyxFetch = (path, init = {}) =>
   fetch(TELNYX + path, {
     ...init,
-    headers: { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json", ...(init.headers ?? {}) },
+    headers: { Authorization: `Bearer ${telnyxKey()}`, "Content-Type": "application/json", ...(init.headers ?? {}) },
   });
 
 /* ------------------------------------------------------ WebRTC (browser voice)
@@ -512,28 +563,47 @@ async function inboundTeXML({ stage, to, from }) {
 /** Web-push an "incoming call" alert to a user's browsers (so a backgrounded /
  *  minimized tab still notifies — the WebRTC leg still rings the app if open). */
 async function notifyIncomingCall(userId, from) {
-  if (!db || !webPushConfigured()) return;
-  try {
-    const subs = await db.getPushSubscriptions(userId);
-    await Promise.all(subs.map(async (s) => {
-      const r = await sendPush(s, { type: "call", title: "Incoming call", body: `${from || "Someone"} is calling you`, from: from || "" });
-      if (r.gone) await db.deletePushSubscription(s.endpoint).catch(() => {});
-    }));
-  } catch (e) { console.error("notifyIncomingCall:", e.message); }
+  if (!db) return;
+  const title = "Incoming call", body = `${from || "Someone"} is calling you`;
+  // Browsers / PWA (Web Push).
+  if (webPushConfigured()) {
+    try {
+      const subs = await db.getPushSubscriptions(userId);
+      await Promise.all(subs.map(async (s) => {
+        const r = await sendPush(s, { type: "call", title, body, from: from || "" });
+        if (r.gone) await db.deletePushSubscription(s.endpoint).catch(() => {});
+      }));
+    } catch (e) { console.error("notifyIncomingCall (web):", e.message); }
+  }
+  // Native Android/iOS app (FCM).
+  if (fcmConfigured()) {
+    try {
+      const tokens = await db.getPushTokens(userId);
+      await sendFcmToUser(tokens, { title, body, data: { type: "call", from: from || "" } }, (t) => db.deletePushToken(t));
+    } catch (e) { console.error("notifyIncomingCall (fcm):", e.message); }
+  }
 }
 
-/** Web-push a "new message" alert to a user's browsers, so a backgrounded or
- *  closed tab still notifies on inbound SMS (the service worker shows it). */
+/** Alert a user's browsers AND native app on inbound SMS (backgrounded/closed). */
 async function notifyIncomingSms(userId, from, text) {
-  if (!db || !webPushConfigured()) return;
-  try {
-    const subs = await db.getPushSubscriptions(userId);
-    const body = text ? (text.length > 120 ? `${text.slice(0, 117)}…` : text) : "You have a new message";
-    await Promise.all(subs.map(async (s) => {
-      const r = await sendPush(s, { type: "sms", title: `New message from ${from || "someone"}`, body, from: from || "" });
-      if (r.gone) await db.deletePushSubscription(s.endpoint).catch(() => {});
-    }));
-  } catch (e) { console.error("notifyIncomingSms:", e.message); }
+  if (!db) return;
+  const title = `New message from ${from || "someone"}`;
+  const body = text ? (text.length > 120 ? `${text.slice(0, 117)}…` : text) : "You have a new message";
+  if (webPushConfigured()) {
+    try {
+      const subs = await db.getPushSubscriptions(userId);
+      await Promise.all(subs.map(async (s) => {
+        const r = await sendPush(s, { type: "sms", title, body, from: from || "" });
+        if (r.gone) await db.deletePushSubscription(s.endpoint).catch(() => {});
+      }));
+    } catch (e) { console.error("notifyIncomingSms (web):", e.message); }
+  }
+  if (fcmConfigured()) {
+    try {
+      const tokens = await db.getPushTokens(userId);
+      await sendFcmToUser(tokens, { title, body, data: { type: "sms", from: from || "" } }, (t) => db.deletePushToken(t));
+    } catch (e) { console.error("notifyIncomingSms (fcm):", e.message); }
+  }
 }
 
 /* ---------------------------------------------------- live-call usage guard */
@@ -594,6 +664,22 @@ async function orderTelnyxNumber(uid, phoneNumber, kind = "local", { free = fals
     ? `${phoneNumber} added with your plan. Register it in Trust center to send SMS.`
     : `${phoneNumber} added for $${Number(amount).toFixed(2)}/mo. Register it in Trust center to send SMS.` });
   return j.data;
+}
+
+/** Free a number on Telnyx so its rental stops. The stored telnyx_id is the
+ *  number-ORDER id (not the phone_number resource id needed for DELETE), so look
+ *  the resource up by E.164 first. Best-effort: returns {ok,reason} and never
+ *  throws — the DB release must proceed regardless so local billing stops. */
+async function releaseTelnyxNumber(e164) {
+  try {
+    const r = await telnyxFetch(`/phone_numbers?filter[phone_number]=${encodeURIComponent(e164)}`);
+    const j = await r.json().catch(() => ({}));
+    const id = j?.data?.[0]?.id;
+    if (!id) return { ok: false, reason: "not found on Telnyx" };
+    const d = await telnyxFetch(`/phone_numbers/${id}`, { method: "DELETE" });
+    if (!d.ok) { const dj = await d.json().catch(() => ({})); return { ok: false, reason: dj?.errors?.[0]?.detail || `HTTP ${d.status}` }; }
+    return { ok: true };
+  } catch (e) { return { ok: false, reason: e.message }; }
 }
 
 /** Fulfil a completed Stripe Checkout from its metadata: credit wallet (topup),
@@ -984,6 +1070,152 @@ createServer(async (req, res) => {
       }
       return send(res, 405, { error: "Method not allowed" });
     }
+
+    // ---- Client management (real data from the app's own DB) ----
+    // Everything below is admin-only and DB-backed.
+    if (req.url.startsWith("/api/admin/users") || req.url.startsWith("/api/admin/user")
+        || req.url.startsWith("/api/admin/numbers") || req.url.startsWith("/api/admin/transactions")
+        || req.url.startsWith("/api/admin/kpis") || req.url.startsWith("/api/admin/wallet")
+        || req.url.startsWith("/api/admin/billing") || req.url.startsWith("/api/admin/config")) {
+      if (!verifyAdminToken(bearer(req))) return send(res, 401, { error: "Not authenticated" });
+      if (!db) return send(res, 503, { error: "Database not configured" });
+      const u = new URL(req.url, "http://x");
+
+      // GET /api/admin/users?q= — all customers
+      if (u.pathname === "/api/admin/users" && req.method === "GET") {
+        try { return send(res, 200, { users: await db.adminListUsers({ q: u.searchParams.get("q") || "" }) }); }
+        catch (e) { return send(res, 500, { error: e.message }); }
+      }
+      // GET /api/admin/kpis — platform metrics + chart series
+      if (u.pathname === "/api/admin/kpis" && req.method === "GET") {
+        try { return send(res, 200, await db.adminKpis()); }
+        catch (e) { return send(res, 500, { error: e.message }); }
+      }
+      // GET /api/admin/numbers?q= — all provisioned numbers
+      if (u.pathname === "/api/admin/numbers" && req.method === "GET") {
+        try { return send(res, 200, { numbers: await db.adminListNumbers({ q: u.searchParams.get("q") || "" }) }); }
+        catch (e) { return send(res, 500, { error: e.message }); }
+      }
+      // GET /api/admin/transactions — full wallet ledger
+      if (u.pathname === "/api/admin/transactions" && req.method === "GET") {
+        try { return send(res, 200, { txns: await db.adminListTransactions({}) }); }
+        catch (e) { return send(res, 500, { error: e.message }); }
+      }
+      // GET /api/admin/user?id= — one customer's full detail
+      if (u.pathname === "/api/admin/user" && req.method === "GET") {
+        const id = Number(u.searchParams.get("id")) || 0;
+        if (!id) return send(res, 400, { error: "id required" });
+        try { return send(res, 200, { user: await db.adminGetUser(id) }); }
+        catch (e) { return send(res, e.status || 500, { error: e.message }); }
+      }
+      // POST /api/admin/user/status { userId, status } — suspend / reactivate
+      if (u.pathname === "/api/admin/user/status" && req.method === "POST") {
+        const body = await readBody(req); let d; try { d = JSON.parse(body || "{}"); } catch { d = {}; }
+        if (!d.userId) return send(res, 400, { error: "userId required" });
+        try { return send(res, 200, await db.adminSetUserStatus(d.userId, d.status)); }
+        catch (e) { return send(res, e.status || 500, { error: e.message }); }
+      }
+      // POST /api/admin/user/subscription { userId, action } — cancel/pause/resume plan
+      if (u.pathname === "/api/admin/user/subscription" && req.method === "POST") {
+        const body = await readBody(req); let d; try { d = JSON.parse(body || "{}"); } catch { d = {}; }
+        if (!d.userId || !d.action) return send(res, 400, { error: "userId and action required" });
+        try { return send(res, 200, { subscription: await db.setSubscriptionStatus(d.userId, d.action, "admin") }); }
+        catch (e) { return send(res, e.status || 500, { error: e.message }); }
+      }
+      // POST /api/admin/user/number { userId, e164 } — release a client's number
+      if (u.pathname === "/api/admin/user/number" && req.method === "POST") {
+        const body = await readBody(req); let d; try { d = JSON.parse(body || "{}"); } catch { d = {}; }
+        if (!d.userId || !d.e164) return send(res, 400, { error: "userId and e164 required" });
+        try {
+          const rel = await db.releaseNumber(d.userId, d.e164, "admin");
+          const tel = await releaseTelnyxNumber(d.e164);
+          if (!tel.ok) console.error(`Telnyx release ${d.e164}: ${tel.reason}`);
+          return send(res, 200, { ok: true, released: rel.ok, telnyxReleased: tel.ok });
+        } catch (e) { return send(res, e.status || 500, { error: e.message }); }
+      }
+      // POST /api/admin/wallet { userId, amount, label } — credit (+) or debit (-)
+      if (u.pathname === "/api/admin/wallet" && req.method === "POST") {
+        const body = await readBody(req); let d; try { d = JSON.parse(body || "{}"); } catch { d = {}; }
+        if (!d.userId || !d.amount) return send(res, 400, { error: "userId and amount required" });
+        try { return send(res, 200, { ok: true, wallet: await db.adminAdjustWallet(d.userId, d.amount, d.label) }); }
+        catch (e) { return send(res, e.status || 500, { error: e.message }); }
+      }
+
+      // GET /api/admin/billing — real plan counts + recent plan activations
+      if (u.pathname === "/api/admin/billing" && req.method === "GET") {
+        try { return send(res, 200, await db.adminBilling()); }
+        catch (e) { return send(res, 500, { error: e.message }); }
+      }
+
+      // ---- Persistent config (Payments / Integrations / Settings) ----
+      // Real status merges the encrypted DB store with the live server env: a key
+      // saved here is used by the server (see stripe.mjs / telnyxKey), else env.
+      if (u.pathname === "/api/admin/config" && req.method === "GET") {
+        return send(res, 200, buildConfig());
+      }
+      if (u.pathname === "/api/admin/config/secret" && req.method === "POST") {
+        const body = await readBody(req); let d; try { d = JSON.parse(body || "{}"); } catch { d = {}; }
+        if (!ALLOWED_SECRETS.has(d.name)) return send(res, 400, { error: "Unknown secret" });
+        try { await settings.setSecret(d.name, d.value || ""); return send(res, 200, buildConfig()); }
+        catch (e) { return send(res, 500, { error: e.message }); }
+      }
+      if (u.pathname === "/api/admin/config/general" && req.method === "POST") {
+        const body = await readBody(req); let d; try { d = JSON.parse(body || "{}"); } catch { d = {}; }
+        try {
+          const merged = { ...GENERAL_DEFAULTS, ...settings.getJSON("general", {}), ...(d.patch || {}) };
+          await settings.setJSON("general", merged);
+          return send(res, 200, buildConfig());
+        } catch (e) { return send(res, 500, { error: e.message }); }
+      }
+      if (u.pathname === "/api/admin/config/provider" && req.method === "POST") {
+        const body = await readBody(req); let d; try { d = JSON.parse(body || "{}"); } catch { d = {}; }
+        const id = d.id; if (!["stripe", "paypal", "bank"].includes(id)) return send(res, 400, { error: "Unknown provider" });
+        try {
+          const prov = settings.getJSON("providers", {});
+          const cur = prov[id] || {};
+          if (typeof d.enabled === "boolean") cur.enabled = d.enabled;
+          if (typeof d.account === "string") cur.account = d.account;
+          if (d.secret) { const sn = PROVIDER_SECRET[id]; if (sn) await settings.setSecret(sn, d.secret); if (id === "bank") cur.connected = true; }
+          prov[id] = cur;
+          await settings.setJSON("providers", prov);
+          return send(res, 200, buildConfig());
+        } catch (e) { return send(res, 500, { error: e.message }); }
+      }
+      if (u.pathname === "/api/admin/config/webhook" && req.method === "POST") {
+        const body = await readBody(req); let d; try { d = JSON.parse(body || "{}"); } catch { d = {}; }
+        try {
+          const list = settings.getJSON("webhooks", null) || defaultWebhooks();
+          if (d.action === "toggle") { const w = list.find((x) => x.id === d.id); if (w) w.enabled = !w.enabled; }
+          else if (d.action === "add" && d.url) { list.push({ id: `wh_${nowId()}`, label: d.label || "Webhook", url: d.url, enabled: true, secretSet: false, custom: true }); }
+          await settings.setJSON("webhooks", list);
+          return send(res, 200, buildConfig());
+        } catch (e) { return send(res, 500, { error: e.message }); }
+      }
+      if (u.pathname === "/api/admin/config/key" && req.method === "POST") {
+        const body = await readBody(req); let d; try { d = JSON.parse(body || "{}"); } catch { d = {}; }
+        if (!d.name) return send(res, 400, { error: "Name required" });
+        try {
+          const full = "pk_live_" + createHmac("sha256", ADMIN_SECRET + nowId()).update(String(d.name)).digest("hex").slice(0, 32);
+          const list = settings.getJSON("platformKeys", []);
+          const rec = { id: `pk_${nowId()}`, name: String(d.name).slice(0, 60), last4: full.slice(-4), created: new Date().toISOString() };
+          list.unshift(rec);
+          await settings.setJSON("platformKeys", list);
+          // The full key is shown ONCE here and never stored in the clear.
+          return send(res, 200, { ok: true, key: full, config: buildConfig() });
+        } catch (e) { return send(res, 500, { error: e.message }); }
+      }
+      if (u.pathname === "/api/admin/config/key" && req.method === "DELETE") {
+        const id = u.searchParams.get("id");
+        try {
+          const list = settings.getJSON("platformKeys", []).filter((k) => k.id !== id);
+          await settings.setJSON("platformKeys", list);
+          return send(res, 200, buildConfig());
+        } catch (e) { return send(res, 500, { error: e.message }); }
+      }
+
+      return send(res, 404, { error: "Unknown admin route" });
+    }
+
     return send(res, 404, { error: "Unknown admin route" });
   }
 
@@ -1111,6 +1343,9 @@ createServer(async (req, res) => {
       if (req.method === "POST" && req.url.startsWith("/api/subscription/auto-renew")) {
         return send(res, 200, { subscription: await db.setAutoRenew(uid, data.on !== false) });
       }
+      if (req.method === "POST" && req.url.startsWith("/api/subscription/cancel")) {
+        return send(res, 200, { subscription: await db.cancelSubscription(uid) });
+      }
       if (req.method === "GET" && req.url.startsWith("/api/subscription")) {
         return send(res, 200, { subscription: await db.getSubscription(uid) });
       }
@@ -1152,7 +1387,7 @@ createServer(async (req, res) => {
   //     server decides free-vs-paid and the amount — the client price is ignored.
   if (req.url?.startsWith("/api/numbers/buy") && req.method === "POST") {
     if (!db) return send(res, 503, { error: "Database not configured" });
-    if (!KEY) return send(res, 503, { error: "Telephony not configured" });
+    if (!telnyxKey()) return send(res, 503, { error: "Telephony not configured" });
     const uid = db.verifyToken(bearer(req));
     if (!uid) return send(res, 401, { error: "Not authenticated" });
     const body = await readBody(req);
@@ -1194,6 +1429,26 @@ createServer(async (req, res) => {
       if (!free) { try { wallet = await db.creditWallet(uid, amount, `Refund — ${phoneNumber} order failed`); } catch { /* ignore */ } }
       return send(res, 502, { error: e.message, wallet });
     }
+  }
+
+  // 3b-ii) Release (give up) a number — frees it on Telnyx + stops its rental.
+  if (req.url?.startsWith("/api/numbers/release") && req.method === "POST") {
+    if (!db) return send(res, 503, { error: "Database not configured" });
+    const uid = db.verifyToken(bearer(req));
+    if (!uid) return send(res, 401, { error: "Not authenticated" });
+    const body = await readBody(req);
+    let data; try { data = JSON.parse(body || "{}"); } catch { data = {}; }
+    const phoneNumber = String(data.phoneNumber || "");
+    if (!phoneNumber) return send(res, 400, { error: "Invalid request" });
+    try {
+      // Mark released in our DB first (authoritative — throws 404 if not owned),
+      // then free it on Telnyx best-effort so the rental actually stops.
+      const rel = await db.releaseNumber(uid, phoneNumber, "user");
+      const tel = await releaseTelnyxNumber(phoneNumber);
+      if (!tel.ok) console.error(`Telnyx release ${phoneNumber}: ${tel.reason}`);
+      const [numbers, capacity] = await Promise.all([db.listNumbers(uid), db.numberCapacity(uid).catch(() => null)]);
+      return send(res, 200, { ok: true, released: rel.ok, telnyxReleased: tel.ok, numbers, capacity });
+    } catch (e) { return send(res, e.status || 500, { error: e.message }); }
   }
 
   // 3c) Subscribe to a bundle (Starter/Business/Pro) FROM THE WALLET. Server sets
@@ -1238,7 +1493,7 @@ createServer(async (req, res) => {
   //     ephemeral JWT (SIP password stays server-side) + returns the user's own
   //     number to use as caller ID.
   if (req.url?.startsWith("/api/telnyx/rtc-token") && req.method === "POST") {
-    if (!KEY) return send(res, 503, { error: "Telephony not configured" });
+    if (!telnyxKey()) return send(res, 503, { error: "Telephony not configured" });
     const uid = db ? db.verifyToken(bearer(req)) : null;
     if (!uid) return send(res, 401, { error: "Not authenticated" });
     try {
@@ -1347,7 +1602,9 @@ createServer(async (req, res) => {
   // 3h) Web Push — public VAPID key (for the browser to subscribe) + save the
   //     subscription. Lets a backgrounded browser tab get incoming-call alerts.
   if (req.url?.startsWith("/api/push/vapid") && req.method === "GET") {
-    return send(res, 200, { publicKey: vapidPublicKey(), enabled: webPushConfigured() });
+    // `fcm` tells the native shell whether the server can reach Firebase at all,
+    // so a device that registers a token knows to expect background alerts.
+    return send(res, 200, { publicKey: vapidPublicKey(), enabled: webPushConfigured(), fcm: fcmConfigured() });
   }
   if (req.url?.startsWith("/api/push/subscribe") && req.method === "POST") {
     if (!db) return send(res, 503, { error: "Database not configured" });
@@ -1361,11 +1618,22 @@ createServer(async (req, res) => {
     try { await db.savePushSubscription(uid, { endpoint: sub.endpoint, p256dh: keys.p256dh, auth: keys.auth }); return send(res, 200, { ok: true }); }
     catch (e) { return send(res, 500, { error: e.message }); }
   }
+  // Native (FCM) device token registration — the Capacitor app POSTs its token here.
+  if (req.url?.startsWith("/api/user/push-token") && req.method === "POST") {
+    if (!db) return send(res, 503, { error: "Database not configured" });
+    const uid = db.verifyToken(bearer(req));
+    if (!uid) return send(res, 401, { error: "Not authenticated" });
+    const body = await readBody(req);
+    let d; try { d = JSON.parse(body || "{}"); } catch { d = {}; }
+    if (!d.token) return send(res, 400, { error: "token required" });
+    try { await db.savePushToken(uid, d.token, d.platform || "android"); return send(res, 200, { ok: true }); }
+    catch (e) { return send(res, 500, { error: e.message }); }
+  }
 
   // Anything that isn't an API/webhook route → serve the built front-end.
   if (!req.url?.startsWith(PREFIX)) return serveStatic(req, res);
 
-  if (!KEY) return send(res, 503, { errors: [{ detail: "Telephony not configured (set TELNYX_API_KEY)" }] });
+  if (!telnyxKey()) return send(res, 503, { errors: [{ detail: "Telephony not configured (set TELNYX_API_KEY)" }] });
 
   // Require a valid user (or admin) token on the telephony proxy — without this,
   // anyone could call /api/telnyx/* and spend the PLATFORM's Telnyx money.
@@ -1409,7 +1677,7 @@ createServer(async (req, res) => {
       const ctype = req.headers["content-type"] || "application/octet-stream";
       const fd = new FormData();
       fd.append("file", new Blob([buf], { type: ctype }), filename);
-      const r = await fetch(`${TELNYX}/documents`, { method: "POST", headers: { Authorization: `Bearer ${KEY}` }, body: fd });
+      const r = await fetch(`${TELNYX}/documents`, { method: "POST", headers: { Authorization: `Bearer ${telnyxKey()}` }, body: fd });
       return send(res, r.status, (await r.text()) || "{}");
     } catch (e) {
       return send(res, 502, { errors: [{ detail: `Document upload failed: ${e.message}` }] });
@@ -1456,9 +1724,15 @@ createServer(async (req, res) => {
   console.log(`  app API  : http://localhost:${PORT}${PREFIX}  → ${TELNYX}`);
   console.log(`  webhooks : http://localhost:${PORT}/webhooks/telnyx`);
 
-  // Point the messaging profile's inbound webhook at us so texts to owned
-  // numbers actually arrive (best-effort — a Telnyx blip must not crash boot).
-  if (KEY) ensureMessagingProfile().catch((e) => console.error("ensureMessagingProfile:", e.message));
+  // Load Control-Hub-managed settings (encrypted key overrides + config) into
+  // the in-memory cache, THEN point the messaging profile's inbound webhook at us
+  // (best-effort — a Telnyx blip must not crash boot). Until load() resolves,
+  // telnyxKey()/Stripe fall back to env, so nothing breaks in the gap.
+  settings.load()
+    .catch((e) => console.error("settings.load:", e.message))
+    .finally(() => {
+      if (telnyxKey()) ensureMessagingProfile().catch((e) => console.error("ensureMessagingProfile:", e.message));
+    });
 
   // Auto-renew engine: charge due bundle subscriptions from the wallet, at boot
   // and hourly thereafter. Lazy renewal on access (getSubscription) covers the

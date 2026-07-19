@@ -1,4 +1,4 @@
-import type { ReactNode, CSSProperties } from "react";
+import { useState, type ReactNode, type CSSProperties } from "react";
 import { ArrowLeft, ChevronRight, ShieldCheck, Trash2 } from "lucide-react";
 import { C, gradients, font, radius } from "../core/theme";
 import { useApp } from "../store/AppStore";
@@ -8,7 +8,9 @@ interface Props { numberId: string; onBack: () => void; onOpenTrust: () => void;
 
 /** Per-number settings — the "number action" screen (Quo-style). */
 export function NumberSettingsScreen({ numberId, onBack, onOpenTrust }: Props) {
-  const { state, updateSettings, showToast } = useApp();
+  const { state, updateSettings, showToast, releaseNumber } = useApp();
+  const [confirmRelease, setConfirmRelease] = useState(false);
+  const [releasing, setReleasing] = useState(false);
   const n = state.numbers.find((x) => x.id === numberId);
   if (!n) return null;
 
@@ -73,13 +75,26 @@ export function NumberSettingsScreen({ numberId, onBack, onOpenTrust }: Props) {
       </Group>
 
       <div style={{ padding: "8px 20px 0" }}>
-        <button onClick={() => showToast("Release number — confirm flow coming soon", "error")} style={{
-          width: "100%", padding: "14px", borderRadius: radius.md, background: "rgba(239,68,68,0.1)",
-          border: "1px solid rgba(239,68,68,0.3)", color: C.red, fontSize: 14, fontWeight: 700,
-          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: font.sans,
-        }}>
-          <Trash2 size={16} /> Release this number
-        </button>
+        {!confirmRelease ? (
+          <button onClick={() => setConfirmRelease(true)} style={{
+            width: "100%", padding: "14px", borderRadius: radius.md, background: "rgba(239,68,68,0.1)",
+            border: "1px solid rgba(239,68,68,0.3)", color: C.red, fontSize: 14, fontWeight: 700,
+            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: font.sans,
+          }}>
+            <Trash2 size={16} /> Release this number
+          </button>
+        ) : (
+          <div style={{ background: C.card, border: "1px solid rgba(239,68,68,0.3)", borderRadius: radius.lg, padding: 16 }}>
+            <p style={{ color: C.text, fontSize: 13.5, fontWeight: 700, marginBottom: 4 }}>Release {n.number}?</p>
+            <p style={{ color: C.muted, fontSize: 12.5, lineHeight: 1.5, marginBottom: 14 }}>
+              This gives the number back to Telnyx and stops its monthly rental. You'll lose any texts &amp; call history on it, and it can't be recovered — you'd have to buy a new number.
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button disabled={releasing} onClick={() => setConfirmRelease(false)} style={{ flex: 1, padding: "12px", borderRadius: radius.md, background: C.input, border: `1px solid ${C.line}`, color: C.text, fontSize: 13.5, fontWeight: 700, cursor: "pointer", fontFamily: font.sans }}>Keep number</button>
+              <button disabled={releasing} onClick={async () => { setReleasing(true); const ok = await releaseNumber(n.id); setReleasing(false); if (ok) onBack(); else setConfirmRelease(false); }} style={{ flex: 1, padding: "12px", borderRadius: radius.md, background: C.red, border: "none", color: "#fff", fontSize: 13.5, fontWeight: 800, cursor: "pointer", fontFamily: font.sans, opacity: releasing ? 0.7 : 1 }}>{releasing ? "Releasing…" : "Release"}</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

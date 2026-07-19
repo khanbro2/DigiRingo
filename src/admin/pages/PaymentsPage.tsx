@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CreditCard, Landmark, ShieldCheck } from "lucide-react";
 import { A, Card, Badge, Button, PageHeader, Modal, Input } from "../ui";
 import { useAdmin, type PaymentProvider } from "../store";
@@ -10,13 +10,17 @@ export function PaymentsPage({ toast }: { toast: (m: string) => void }) {
   const [editing, setEditing] = useState<PaymentProvider | null>(null);
   const [secret, setSecret] = useState("");
   const [account, setAccount] = useState("");
+  const [fee, setFee] = useState("0");
+  useEffect(() => { setFee(String(general.platformFeePct ?? 0)); }, [general.platformFeePct]);
 
-  const save = () => {
+  const save = async () => {
     if (!editing) return;
     if (!secret.trim()) { toast("Enter the API/secret key"); return; }
-    saveProvider(editing.id, secret.trim(), account.trim() || undefined);
-    toast(`${editing.name} connected`);
-    setEditing(null); setSecret(""); setAccount("");
+    try {
+      await saveProvider(editing.id, secret.trim(), account.trim() || undefined);
+      toast(`${editing.name} connected`);
+      setEditing(null); setSecret(""); setAccount("");
+    } catch (e) { toast(e instanceof Error ? e.message : "Could not save"); }
   };
 
   return (
@@ -72,7 +76,7 @@ export function PaymentsPage({ toast }: { toast: (m: string) => void }) {
           <Setting label="Payout schedule" value={general.payoutSchedule} options={["Daily", "Weekly", "Monthly", "Manual"]} onChange={(v) => saveGeneral({ payoutSchedule: v })} />
           <div>
             <p style={{ color: A.muted, fontSize: 11.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 7 }}>Platform fee (%)</p>
-            <input type="number" value={general.platformFeePct} onChange={(e) => saveGeneral({ platformFeePct: Number(e.target.value) })}
+            <input type="number" value={fee} onChange={(e) => setFee(e.target.value)}
               style={{ width: "100%", padding: "11px 14px", background: A.panelAlt, border: `1px solid ${A.line}`, borderRadius: 11, color: A.text, fontSize: 14, outline: "none" }} />
           </div>
           <div>
@@ -80,7 +84,7 @@ export function PaymentsPage({ toast }: { toast: (m: string) => void }) {
             <div style={{ padding: "11px 14px", background: A.panelAlt, border: `1px solid ${A.line}`, borderRadius: 11, color: A.text, fontSize: 13.5 }}>{general.payoutDestination}</div>
           </div>
         </div>
-        <div style={{ marginTop: 16 }}><Button onClick={() => toast("Financial settings saved")}>Save settings</Button></div>
+        <div style={{ marginTop: 16 }}><Button onClick={async () => { try { await saveGeneral({ platformFeePct: Number(fee) || 0 }); toast("Financial settings saved"); } catch (e) { toast(e instanceof Error ? e.message : "Could not save"); } }}>Save settings</Button></div>
       </Card>
 
       {editing && (

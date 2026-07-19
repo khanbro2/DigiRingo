@@ -10,11 +10,15 @@
  *   STRIPE_WEBHOOK_SECRET   whsec_…                 (webhook signature)
  */
 import crypto from "node:crypto";
+import * as settings from "./settings-store.mjs";
 
 // Read lazily — this module is imported before the server calls loadEnvFile().
-const secret = () => process.env.STRIPE_SECRET_KEY || "";
-export const publishableKey = () => process.env.STRIPE_PUBLISHABLE_KEY || "";
-const webhookSecret = () => process.env.STRIPE_WEBHOOK_SECRET || "";
+// A key saved via the Control Hub (encrypted in the DB) takes precedence over the
+// env var; if none is saved (cache empty / DB down) we fall back to env — i.e.
+// today's behaviour, so this can never take a working key away.
+const secret = () => settings.getSecret("STRIPE_SECRET_KEY") || process.env.STRIPE_SECRET_KEY || "";
+export const publishableKey = () => settings.getSecret("STRIPE_PUBLISHABLE_KEY") || process.env.STRIPE_PUBLISHABLE_KEY || "";
+const webhookSecret = () => settings.getSecret("STRIPE_WEBHOOK_SECRET") || process.env.STRIPE_WEBHOOK_SECRET || "";
 export const stripeConfigured = () => !!secret();
 
 /** Flatten a nested object into Stripe's bracketed form-encoding. */

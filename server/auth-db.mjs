@@ -160,6 +160,9 @@ export async function loginUser(email, password) {
   if (!u || !verifyPassword(password, u.password_hash)) {
     throw httpErr(401, "Invalid email or password");
   }
+  if (String(u.status || "active") === "suspended") {
+    throw httpErr(403, "This account has been suspended. Contact support.");
+  }
   return { token: signToken(u.id), user: publicUser(u) };
 }
 
@@ -491,6 +494,49 @@ async function getActiveSubRow(uid) {
   return rows[0] || null;
 }
 
+/** The latest ACTIONABLE subscription (active/past_due/paused) — for the admin
+ *  view + status changes, which need to see paused plans that getSubscription hides. */
+async function latestActionableSub(uid) {
+  const [rows] = await pool.query(
+    "SELECT * FROM subscriptions WHERE user_id = ? AND status IN ('active','past_due','paused') ORDER BY id DESC LIMIT 1",
+    [uid]
+  );
+  return rows[0] || null;
+}
+
+/**
+ * Change a subscription's lifecycle state. `action`:
+ *   cancel  → ends the plan now (→ pay-as-you-go); from active/past_due/paused
+ *   pause   → temporarily suspends benefits (reversible); from active
+ *   resume  → re-activates a paused plan
+ * `by` ('user' | 'admin') only affects the activity-log wording. Returns the
+ * user's subscription as the app would see it (null once cancelled/paused).
+ */
+export async function setSubscriptionStatus(uid, action, by = "user") {
+  uid = Number(uid);
+  if (action === "cancel") {
+    const [r] = await pool.query(
+      "UPDATE subscriptions SET status = 'cancelled', auto_renew = 0 WHERE user_id = ? AND status IN ('active','past_due','paused')",
+      [uid]
+    );
+    if (r.affectedRows) await logActivity(uid, { kind: "system", title: "Plan cancelled", body: by === "admin" ? "Your plan was cancelled by support — you're now on pay-as-you-go." : "You cancelled your plan — you're now on pay-as-you-go." });
+  } else if (action === "pause") {
+    const [r] = await pool.query("UPDATE subscriptions SET status = 'paused' WHERE user_id = ? AND status = 'active'", [uid]);
+    if (r.affectedRows) await logActivity(uid, { kind: "system", title: "Plan paused", body: "Your plan was paused by support. Contact us to resume it." });
+  } else if (action === "resume") {
+    const [r] = await pool.query("UPDATE subscriptions SET status = 'active' WHERE user_id = ? AND status = 'paused'", [uid]);
+    if (r.affectedRows) await logActivity(uid, { kind: "system", title: "Plan resumed", body: "Your plan was resumed — benefits restored." });
+  } else {
+    throw httpErr(400, "Unknown action");
+  }
+  return getSubscription(uid);
+}
+
+/** Convenience: user-initiated self-cancel. */
+export async function cancelSubscription(uid) {
+  return setSubscriptionStatus(uid, "cancel", "user");
+}
+
 /* --------------------------------------------------------------- owned numbers */
 /** How many active numbers the user owns (for plan-capacity enforcement). */
 export async function countNumbers(uid) {
@@ -520,6 +566,28 @@ export async function provisionNumber(uid, { e164, kind = "local", telnyxId = ""
          telnyx_id = VALUES(telnyx_id), free = VALUES(free), status = 'active', renews_at = VALUES(renews_at)`,
     [uid, String(e164), kind === "tollfree" ? "tollfree" : "local", String(telnyxId || ""), free ? 1 : 0, renewsAt]
   );
+}
+
+/**
+ * Release a number the user owns: marks it 'released' (dropped from the app,
+ * stops the monthly rental) and returns its stored telnyx_id so the caller can
+ * also free it on Telnyx. Matches on digits so formatting differences don't miss.
+ * `by` ('user' | 'admin') only tunes the activity-log wording. Throws 404 if the
+ * user doesn't own an active number matching `e164`.
+ */
+export async function releaseNumber(uid, e164, by = "user") {
+  uid = Number(uid);
+  const [rows] = await pool.query(
+    `SELECT id, telnyx_id FROM numbers
+       WHERE user_id = ? AND REGEXP_REPLACE(e164, '[^0-9]', '') = REGEXP_REPLACE(?, '[^0-9]', '')
+         AND status IN ('active','past_due') ORDER BY id DESC LIMIT 1`,
+    [uid, String(e164)]
+  );
+  const row = rows[0];
+  if (!row) throw httpErr(404, "Number not found");
+  await pool.query("UPDATE numbers SET status = 'released', renews_at = 0 WHERE id = ?", [row.id]);
+  await logActivity(uid, { kind: "number", title: "Number released", body: by === "admin" ? `${e164} was released by support.` : `${e164} was released.` });
+  return { ok: true, telnyxId: row.telnyx_id || "" };
 }
 
 /**
@@ -1064,4 +1132,218 @@ export async function getPushSubscriptions(uid) {
 export async function deletePushSubscription(endpoint) {
   if (!endpoint) return;
   await pool.query("DELETE FROM push_subscriptions WHERE endpoint = ?", [String(endpoint)]);
+}
+
+/* --------------------------------------- native (FCM) device push tokens */
+export async function savePushToken(uid, token, platform = "android") {
+  if (!uid || !token) return;
+  await pool.query(
+    `INSERT INTO device_tokens (user_id, token, platform) VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), platform = VALUES(platform)`,
+    [uid, String(token).slice(0, 255), String(platform || "android").slice(0, 16)]
+  );
+}
+
+export async function getPushTokens(uid) {
+  const [rows] = await pool.query("SELECT token, platform FROM device_tokens WHERE user_id = ?", [uid]);
+  return rows.map((r) => ({ token: r.token, platform: r.platform }));
+}
+
+/** Remove a dead token (FCM returned UNREGISTERED/NOT_FOUND). */
+export async function deletePushToken(token) {
+  if (!token) return;
+  await pool.query("DELETE FROM device_tokens WHERE token = ?", [String(token)]);
+}
+
+/* ================================================================= *
+ *  Control Hub (admin) — cross-user aggregates for managing clients. *
+ *  Every function here is admin-only; the router gates them behind   *
+ *  verifyAdminToken. They read the SAME tables the app writes, so    *
+ *  the dashboard shows real customers, real wallets, real numbers.   *
+ * ================================================================= */
+
+/** All customer accounts (newest first) with plan, number count and balance.
+ *  `q` filters by name/email; empty q returns everyone up to `limit`. */
+export async function adminListUsers({ q = "", limit = 500 } = {}) {
+  const like = `%${String(q || "").trim()}%`;
+  const hasQ = String(q || "").trim() !== "";
+  const [rows] = await pool.query(
+    `SELECT u.id, u.email, u.name, u.wallet_balance, u.status, u.email_verified, u.created_at,
+            (SELECT COUNT(*) FROM numbers n WHERE n.user_id = u.id AND n.status = 'active') AS numbers,
+            (SELECT s.tier FROM subscriptions s WHERE s.user_id = u.id AND s.status IN ('active','past_due')
+               ORDER BY s.id DESC LIMIT 1) AS tier
+       FROM users u
+      ${hasQ ? "WHERE u.email LIKE ? OR u.name LIKE ?" : ""}
+      ORDER BY u.id DESC LIMIT ?`,
+    hasQ ? [like, like, Number(limit)] : [Number(limit)]
+  );
+  return rows.map((u) => ({
+    id: u.id,
+    name: u.name || "—",
+    email: u.email,
+    plan: u.tier ? u.tier.charAt(0).toUpperCase() + u.tier.slice(1) : "Free",
+    numbers: Number(u.numbers) || 0,
+    balance: Number(u.wallet_balance) || 0,
+    status: String(u.status || "active"),
+    verified: !!Number(u.email_verified),
+    joined: relTime(u.created_at),
+  }));
+}
+
+/** Full detail for one customer — profile, wallet + ledger, numbers, plan,
+ *  and recent activity. Powers the admin "View customer" drawer. */
+export async function adminGetUser(uid) {
+  uid = Number(uid);
+  const [rows] = await pool.query("SELECT * FROM users WHERE id = ?", [uid]);
+  const u = rows[0];
+  if (!u) throw httpErr(404, "User not found");
+  const [wallet, numbers, activity, subRow] = await Promise.all([
+    getWallet(uid),
+    listNumbers(uid),
+    listActivity(uid, 50),
+    latestActionableSub(uid),
+  ]);
+  return {
+    id: u.id,
+    name: u.name || "—",
+    email: u.email,
+    status: String(u.status || "active"),
+    verified: !!Number(u.email_verified),
+    joined: relTime(u.created_at),
+    wallet,               // { balance, txns[] }
+    numbers,              // [{ e164, kind, ... }]
+    activity,             // [{ title, body, time, ... }]
+    subscription: shapeSub(subRow),
+  };
+}
+
+/** Admin wallet adjustment. `amount` > 0 credits, < 0 debits. Records a
+ *  wallet_transaction AND an activity-log line the customer can see. */
+export async function adminAdjustWallet(uid, amount, label = "") {
+  uid = Number(uid);
+  amount = Number(amount);
+  if (!amount) throw httpErr(400, "Amount is required");
+  const note = String(label || "").trim();
+  let wallet;
+  if (amount > 0) {
+    wallet = await creditWallet(uid, amount, note || "Admin credit", "admin");
+    await logActivity(uid, { kind: "wallet", title: `Wallet credited $${amount.toFixed(2)}`, body: note });
+  } else {
+    wallet = await debitWallet(uid, -amount, note || "Admin adjustment");
+    await logActivity(uid, { kind: "wallet", title: `Wallet adjusted -$${(-amount).toFixed(2)}`, body: note });
+  }
+  return wallet;
+}
+
+/** Suspend or reactivate an account. A suspended account cannot sign in. */
+export async function adminSetUserStatus(uid, status) {
+  uid = Number(uid);
+  status = status === "suspended" ? "suspended" : "active";
+  await pool.query("UPDATE users SET status = ? WHERE id = ?", [status, uid]);
+  await logActivity(uid, {
+    kind: "system",
+    title: status === "suspended" ? "Account suspended" : "Account reactivated",
+    body: status === "suspended" ? "Sign-in disabled by an administrator." : "Access restored by an administrator.",
+  });
+  return { ok: true, status };
+}
+
+/** Every provisioned number across all users (with owner). */
+export async function adminListNumbers({ q = "", limit = 1000 } = {}) {
+  const like = `%${String(q || "").trim()}%`;
+  const hasQ = String(q || "").trim() !== "";
+  const [rows] = await pool.query(
+    `SELECT n.id, n.e164, n.kind, n.status, n.free, n.created_at, u.name AS owner, u.email
+       FROM numbers n JOIN users u ON u.id = n.user_id
+      WHERE n.status IN ('active','past_due')
+      ${hasQ ? "AND (n.e164 LIKE ? OR u.name LIKE ? OR u.email LIKE ?)" : ""}
+      ORDER BY n.id DESC LIMIT ?`,
+    hasQ ? [like, like, like, Number(limit)] : [Number(limit)]
+  );
+  return rows.map((n) => ({
+    id: `num_${n.id}`,
+    number: n.e164,
+    owner: n.owner || "—",
+    email: n.email,
+    kind: n.kind === "tollfree" ? "Toll-free" : "Local",
+    status: n.status === "active" ? "active" : "past_due",
+    free: !!Number(n.free),
+    time: relTime(n.created_at),
+  }));
+}
+
+/** The full platform wallet ledger (all users), newest first. */
+export async function adminListTransactions({ limit = 500 } = {}) {
+  const [rows] = await pool.query(
+    `SELECT t.id, t.amount, t.label, t.kind, t.created_at, u.name AS user, u.email
+       FROM wallet_transactions t JOIN users u ON u.id = t.user_id
+      ORDER BY t.id DESC LIMIT ?`,
+    [Number(limit)]
+  );
+  return rows.map((t) => ({
+    id: `tx_${t.id}`,
+    user: t.user || "—",
+    email: t.email,
+    label: t.label || "",
+    kind: t.kind || "charge",
+    amount: Number(t.amount),
+    time: relTime(t.created_at),
+  }));
+}
+
+/** Billing detail — real subscriber counts per plan + recent plan activations
+ *  (used in place of the old fake "invoices"). */
+export async function adminBilling() {
+  const [counts] = await pool.query(
+    "SELECT tier, COUNT(*) AS c FROM subscriptions WHERE status = 'active' GROUP BY tier"
+  );
+  const planCounts = {};
+  for (const r of counts) planCounts[String(r.tier || "").toLowerCase()] = Number(r.c) || 0;
+  const [subs] = await pool.query(
+    `SELECT s.id, s.tier, s.cycle, s.renew_amount, s.status, s.created_at, u.name, u.email
+       FROM subscriptions s JOIN users u ON u.id = s.user_id
+      ORDER BY s.id DESC LIMIT 20`
+  );
+  const invoices = subs.map((s) => ({
+    id: `SUB-${s.id}`,
+    user: s.name || "—",
+    email: s.email,
+    period: `${(s.tier || "").charAt(0).toUpperCase() + (s.tier || "").slice(1)} · ${s.cycle || "monthly"}`,
+    amount: Number(s.renew_amount) || 0,
+    status: s.status || "active",
+  }));
+  return { planCounts, invoices };
+}
+
+/** Platform KPIs + chart series, all computed live from the DB. */
+export async function adminKpis() {
+  const [uRows] = await pool.query("SELECT COUNT(*) AS c FROM users");
+  const [nRows] = await pool.query("SELECT COUNT(*) AS c FROM numbers WHERE status = 'active'");
+  const [mRows] = await pool.query(
+    "SELECT COALESCE(SUM(CASE WHEN cycle = 'yearly' THEN renew_amount/12 ELSE renew_amount END),0) AS v FROM subscriptions WHERE status = 'active'"
+  );
+  const [sRows] = await pool.query("SELECT COUNT(*) AS c FROM messages WHERE created_at >= (NOW() - INTERVAL 7 DAY)");
+  const [bRows] = await pool.query("SELECT COALESCE(SUM(wallet_balance),0) AS v FROM users");
+  const [spRows] = await pool.query("SELECT COUNT(*) AS c FROM users WHERE status = 'suspended'");
+  const users = uRows[0], nums = nRows[0], mrr = mRows[0], sms = sRows[0], bal = bRows[0], susp = spRows[0];
+  const [msgSeries] = await pool.query(
+    `SELECT DATE_FORMAT(created_at,'%a') AS d, DATE(created_at) AS day, COUNT(*) AS sms
+       FROM messages WHERE created_at >= (NOW() - INTERVAL 7 DAY)
+      GROUP BY day, d ORDER BY day ASC`
+  );
+  const [revSeries] = await pool.query(
+    `SELECT DATE_FORMAT(created_at,'%b') AS m, DATE_FORMAT(created_at,'%Y-%m') AS ym, COALESCE(SUM(amount),0) AS rev
+       FROM wallet_transactions WHERE kind = 'topup' AND created_at >= (NOW() - INTERVAL 6 MONTH)
+      GROUP BY ym, m ORDER BY ym ASC`
+  );
+  return {
+    totalUsers: Number(users.c) || 0,
+    activeNumbers: Number(nums.c) || 0,
+    mrr: Math.round(Number(mrr.v) || 0),
+    smsSent7d: Number(sms.c) || 0,
+    walletTotal: Number(bal.v) || 0,
+    suspended: Number(susp.c) || 0,
+    messages7d: msgSeries.map((r) => ({ d: r.d, sms: Number(r.sms) || 0 })),
+    revenue6m: revSeries.map((r) => ({ m: r.m, rev: Math.round(Number(r.rev) || 0) })),
+  };
 }

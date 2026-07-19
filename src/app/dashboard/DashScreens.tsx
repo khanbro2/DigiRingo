@@ -2,9 +2,9 @@ import { useState, useRef, useEffect, type ReactNode, type CSSProperties } from 
 import {
   Phone, MessageSquare, Wallet2, Sparkles, Plus, Send, Settings2,
   PhoneIncoming, PhoneOutgoing, PhoneMissed, ShieldCheck,
-  Check, Gift, CheckCheck, ArrowRight, SquarePen, X,
+  Check, Gift, CheckCheck, ArrowRight, SquarePen, X, Trash2,
 } from "lucide-react";
-import { C, gradients, font } from "../core/theme";
+import { C, gradients, font, radius } from "../core/theme";
 import { useApp } from "../store/AppStore";
 import { BUNDLES, bundlePrice, getBundle, type Bundle, type BillingCycle } from "../core/plans";
 import { PaySheet } from "../screens/PlansScreen";
@@ -178,8 +178,11 @@ const chip: CSSProperties = { display: "inline-flex", alignItems: "center", gap:
 /* ================================================================= Numbers == */
 
 export function DashNumbers({ onBuyNumber, onOpenSettings, onOpenInbox }: { onBuyNumber: () => void; onOpenSettings: (id: string) => void; onOpenInbox: (id: string) => void }) {
-  const { state } = useApp();
+  const { state, releaseNumber } = useApp();
   const nums = state.numbers;
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [releasing, setReleasing] = useState(false);
+  const confirmNum = nums.find((n) => n.id === confirmId);
   return (
     <Panel title={`Your numbers (${nums.length})`} sub="Every number belongs to a plan — the first is free" action={<button style={primaryBtn} onClick={onBuyNumber}><Plus size={16} /> New number</button>} bodyPad={nums.length ? 8 : 0}>
       {nums.length === 0 ? (
@@ -200,12 +203,28 @@ export function DashNumbers({ onBuyNumber, onOpenSettings, onOpenInbox }: { onBu
                     <span style={{ display: "inline-flex", gap: 7, justifyContent: "flex-end" }}>
                       <button title="Open inbox" style={rowBtn} onClick={() => onOpenInbox(n.id)}><MessageSquare size={15} color={C.muted} /></button>
                       <button title="Settings" style={rowBtn} onClick={() => onOpenSettings(n.id)}><Settings2 size={15} color={C.muted} /></button>
+                      <button title="Release number" style={{ ...rowBtn, borderColor: "rgba(239,68,68,0.3)" }} onClick={() => setConfirmId(n.id)}><Trash2 size={15} color={C.red} /></button>
                     </span>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {confirmNum && (
+        <div onClick={(e) => e.target === e.currentTarget && setConfirmId(null)} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ width: "100%", maxWidth: 420, background: C.card, border: `1px solid ${C.line}`, borderRadius: 18, padding: 22 }}>
+            <p style={{ color: C.text, fontSize: 17, fontWeight: 800, marginBottom: 6 }}>Release {confirmNum.number}?</p>
+            <p style={{ color: C.muted, fontSize: 13, lineHeight: 1.55, marginBottom: 18 }}>
+              This gives the number back to Telnyx and stops its monthly rental. You'll lose any texts &amp; call history on it, and it can't be recovered — you'd have to buy a new number.
+            </p>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button disabled={releasing} onClick={() => setConfirmId(null)} style={{ padding: "11px 18px", borderRadius: radius.md, background: C.input, border: `1px solid ${C.line}`, color: C.text, fontSize: 13.5, fontWeight: 700, cursor: "pointer", fontFamily: font.sans }}>Keep number</button>
+              <button disabled={releasing} onClick={async () => { setReleasing(true); const ok = await releaseNumber(confirmNum.id); setReleasing(false); if (ok) setConfirmId(null); }} style={{ padding: "11px 18px", borderRadius: radius.md, background: C.red, border: "none", color: "#fff", fontSize: 13.5, fontWeight: 800, cursor: "pointer", fontFamily: font.sans, opacity: releasing ? 0.7 : 1 }}>{releasing ? "Releasing…" : "Release"}</button>
+            </div>
+          </div>
         </div>
       )}
     </Panel>
@@ -412,9 +431,11 @@ export function DashActivity() {
 /* =================================================================== Plans == */
 
 export function DashPlans({ onTopUp }: { onTopUp: () => void }) {
-  const { state, subscribe, setAutoRenew } = useApp();
+  const { state, subscribe, setAutoRenew, cancelSubscription } = useApp();
   const [cycle, setCycle] = useState<BillingCycle>("monthly");
   const [chosen, setChosen] = useState<Bundle | null>(null);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const sub = state.subscription;
   const activeBundle = sub ? getBundle(sub.tier) : undefined;
   const pastDue = sub?.status === "past_due";
@@ -441,6 +462,17 @@ export function DashPlans({ onTopUp }: { onTopUp: () => void }) {
                 </button>
               </div>
               {pastDue && <button onClick={onTopUp} style={{ ...primaryBtn, marginTop: 14 }}>Top up wallet</button>}
+              {!confirmCancel ? (
+                <button onClick={() => setConfirmCancel(true)} style={{ marginTop: 12, padding: "9px 16px", borderRadius: radius.md, border: `1px solid ${C.line}`, background: "transparent", color: C.muted, fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: font.sans }}>Cancel plan</button>
+              ) : (
+                <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: radius.md, background: C.card, border: "1px solid rgba(239,68,68,0.3)", maxWidth: 320 }}>
+                  <p style={{ color: C.text, fontSize: 12.5, lineHeight: 1.5, marginBottom: 12 }}>Cancel your plan? You'll lose included minutes &amp; SMS and move to pay-as-you-go. Re-subscribe anytime.</p>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button disabled={cancelling} onClick={() => setConfirmCancel(false)} style={{ flex: 1, padding: "9px", borderRadius: radius.sm, border: `1px solid ${C.line}`, background: C.input, color: C.text, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: font.sans }}>Keep plan</button>
+                    <button disabled={cancelling} onClick={async () => { setCancelling(true); const ok = await cancelSubscription(); setCancelling(false); if (ok) setConfirmCancel(false); }} style={{ flex: 1, padding: "9px", borderRadius: radius.sm, border: "none", background: C.red, color: "#fff", fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: font.sans, opacity: cancelling ? 0.7 : 1 }}>{cancelling ? "Cancelling…" : "Cancel plan"}</button>
+                  </div>
+                </div>
+              )}
             </div>
             <div style={{ flex: 1, minWidth: 260, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
               {[["Minutes", sub.minutesUsed, sub.minutesIncluded], ["SMS", sub.smsUsed, sub.smsIncluded]].map(([label, u, t]) => (

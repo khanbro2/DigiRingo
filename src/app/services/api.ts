@@ -119,6 +119,10 @@ export interface BuyResult {
 export const apiBuyNumber = (phoneNumber: string, kind: NumberKind) =>
   req<BuyResult>("/api/numbers/buy", { method: "POST", body: JSON.stringify({ phoneNumber, kind }) });
 
+/** Release (give up) a number — frees it on Telnyx and stops its monthly rental. */
+export const apiReleaseNumber = (phoneNumber: string) =>
+  req<{ ok: boolean; numbers?: ApiOwnedNumber[]; capacity?: ApiCapacity }>("/api/numbers/release", { method: "POST", body: JSON.stringify({ phoneNumber }) });
+
 export interface SubscribeResult { ok: boolean; subscription?: ApiSubscription; wallet?: ApiWallet; }
 
 /**
@@ -134,6 +138,10 @@ export const apiGetSubscription = () => req<{ subscription: ApiSubscription | nu
 /** Turn auto-renew (wallet-funded) on or off for the active plan. */
 export const apiSetAutoRenew = (on: boolean) =>
   req<{ subscription: ApiSubscription | null }>("/api/subscription/auto-renew", { method: "POST", body: JSON.stringify({ on }) });
+
+/** Cancel the active plan immediately → back to pay-as-you-go. */
+export const apiCancelSubscription = () =>
+  req<{ subscription: ApiSubscription | null }>("/api/subscription/cancel", { method: "POST", body: JSON.stringify({}) });
 
 export interface ApiActivityItem { id: string; kind: string; title: string; body: string; time: string; read: boolean; }
 

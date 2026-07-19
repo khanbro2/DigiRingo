@@ -9,6 +9,7 @@ export function IntegrationsPage({ toast }: { toast: (m: string) => void }) {
   const [keyVal, setKeyVal] = useState("");
   const [newKeyName, setNewKeyName] = useState<string | null>(null);
   const [keyName, setKeyName] = useState("");
+  const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [whModal, setWhModal] = useState(false);
   const [whLabel, setWhLabel] = useState(""); const [whUrl, setWhUrl] = useState("");
 
@@ -26,13 +27,13 @@ export function IntegrationsPage({ toast }: { toast: (m: string) => void }) {
         <div style={{ padding: "16px 20px", borderBottom: `1px solid ${A.line}`, display: "flex", alignItems: "center", gap: 10 }}>
           <KeyRound size={18} color={A.blue} /><p style={{ color: A.text, fontSize: 15, fontWeight: 700 }}>Service API keys</p>
         </div>
-        <Table head={["Service", "Key", "Status", "Updated"]}>
+        <Table head={["Service", "Key", "Status", "Source"]}>
           {credentials.map((c) => (
             <tr key={c.id}>
               <Td><p style={{ fontWeight: 700 }}>{c.service}</p><p style={{ color: A.muted, fontSize: 12 }}>{c.blurb}</p></Td>
               <Td><SecretField status={c.status} last4={c.last4} onReplace={() => { setEditKey(c.id); setKeyVal(""); }} /></Td>
               <Td><Badge tone={c.status === "set" ? "green" : "amber"}>{c.status === "set" ? "Configured" : "Missing"}</Badge></Td>
-              <Td style={{ color: A.muted }}>{c.updated ?? "—"}</Td>
+              <Td style={{ color: A.muted }}>{c.source === "dashboard" ? "Dashboard" : c.source === "env" ? "Server env" : "—"}</Td>
             </tr>
           ))}
         </Table>
@@ -96,7 +97,19 @@ export function IntegrationsPage({ toast }: { toast: (m: string) => void }) {
       {newKeyName !== null && (
         <Modal title="Create platform API key" onClose={() => setNewKeyName(null)}>
           <Input label="Key name" value={keyName} onChange={setKeyName} placeholder="e.g. Zapier integration" />
-          <div style={{ display: "flex", gap: 10 }}><Button onClick={() => { if (!keyName.trim()) { toast("Name required"); return; } createKey(keyName.trim()); toast("API key created"); setNewKeyName(null); }}>Create</Button><Button variant="ghost" onClick={() => setNewKeyName(null)}>Cancel</Button></div>
+          <div style={{ display: "flex", gap: 10 }}><Button onClick={async () => { if (!keyName.trim()) { toast("Name required"); return; } try { const full = await createKey(keyName.trim()); setNewKeyName(null); setCreatedKey(full); } catch (e) { toast(e instanceof Error ? e.message : "Could not create"); } }}>Create</Button><Button variant="ghost" onClick={() => setNewKeyName(null)}>Cancel</Button></div>
+        </Modal>
+      )}
+
+      {/* Show the full key ONCE after creation — it's never retrievable again. */}
+      {createdKey && (
+        <Modal title="API key created" onClose={() => setCreatedKey(null)}>
+          <p style={{ color: A.muted, fontSize: 13, marginBottom: 12, lineHeight: 1.5 }}>Copy this key now — for security it will never be shown again.</p>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+            <code style={{ flex: 1, fontFamily: "monospace", fontSize: 13, color: A.text, background: A.panelAlt, border: `1px solid ${A.line}`, borderRadius: 10, padding: "11px 13px", wordBreak: "break-all" }}>{createdKey}</code>
+            <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard?.writeText(createdKey).then(() => toast("Copied")).catch(() => {}); }}>Copy</Button>
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}><Button onClick={() => setCreatedKey(null)}>Done</Button></div>
         </Modal>
       )}
 

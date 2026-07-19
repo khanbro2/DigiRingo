@@ -35,11 +35,13 @@ export async function initNative(): Promise<void> {
     });
   } catch { /* plugin unavailable */ }
 
-  // Push is OFF until Firebase is configured. Calling PushNotifications.register()
-  // without google-services.json throws a NATIVE fatal ("Default FirebaseApp is
-  // not initialized") that crashes the app on launch — a JS try/catch can't stop
-  // it. Re-enable by adding google-services.json + flipping PUSH_ENABLED to true.
-  const PUSH_ENABLED = false;
+  // Push requires Firebase: calling PushNotifications.register() WITHOUT
+  // google-services.json throws a NATIVE fatal ("Default FirebaseApp is not
+  // initialized") that crashes the app on launch — a JS try/catch can't stop it.
+  // So it's gated on a BUILD flag (VITE_PUSH_ENABLED=true, set only in
+  // .env.native) AND google-services.json must be present in android/app/ for
+  // that build. The web build never sets the flag, so this never runs in a browser.
+  const PUSH_ENABLED = (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_PUSH_ENABLED === "true";
   if (PUSH_ENABLED) await initPush();
 }
 

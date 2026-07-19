@@ -13,9 +13,11 @@ interface Props { onBack: () => void; onTopUp: () => void; }
  * its included-usage meters show at the top.
  */
 export function PlansScreen({ onBack, onTopUp }: Props) {
-  const { state, subscribe, setAutoRenew } = useApp();
+  const { state, subscribe, setAutoRenew, cancelSubscription } = useApp();
   const [cycle, setCycle] = useState<BillingCycle>("monthly");
   const [chosen, setChosen] = useState<Bundle | null>(null);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const sub = state.subscription;
   const activeBundle = sub ? getBundle(sub.tier) : undefined;
   const pastDue = sub?.status === "past_due";
@@ -61,6 +63,23 @@ export function PlansScreen({ onBack, onTopUp }: Props) {
               <button onClick={onTopUp} style={{ width: "100%", marginTop: 12, padding: "12px", borderRadius: radius.md, border: "none", background: gradients.brand, color: "#fff", fontSize: 13.5, fontWeight: 800, cursor: "pointer", fontFamily: font.sans }}>
                 Top up wallet to restore your plan
               </button>
+            )}
+
+            {/* Cancel plan */}
+            {!confirmCancel ? (
+              <button onClick={() => setConfirmCancel(true)} style={{ width: "100%", marginTop: 12, padding: "11px", borderRadius: radius.md, border: "1px solid rgba(255,255,255,0.14)", background: "transparent", color: "rgba(255,255,255,0.6)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: font.sans }}>
+                Cancel plan
+              </button>
+            ) : (
+              <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: radius.md, background: "rgba(0,0,0,0.25)", border: "1px solid rgba(239,68,68,0.3)" }}>
+                <p style={{ color: "rgba(255,255,255,0.85)", fontSize: 12.5, lineHeight: 1.5, marginBottom: 12 }}>
+                  Cancel your plan? You'll lose your included minutes &amp; SMS and move to pay-as-you-go. You can re-subscribe anytime.
+                </p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button disabled={cancelling} onClick={() => setConfirmCancel(false)} style={{ flex: 1, padding: "10px", borderRadius: radius.sm, border: "1px solid rgba(255,255,255,0.18)", background: "transparent", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: font.sans }}>Keep plan</button>
+                  <button disabled={cancelling} onClick={async () => { setCancelling(true); const ok = await cancelSubscription(); setCancelling(false); if (ok) setConfirmCancel(false); }} style={{ flex: 1, padding: "10px", borderRadius: radius.sm, border: "none", background: C.red, color: "#fff", fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: font.sans, opacity: cancelling ? 0.7 : 1 }}>{cancelling ? "Cancelling…" : "Cancel plan"}</button>
+                </div>
+              </div>
             )}
           </div>
         </div>

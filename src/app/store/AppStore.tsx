@@ -14,7 +14,7 @@ import { retailPrice } from "../core/pricing";
 import { getBundle, NUMBER_RENTAL } from "../core/plans";
 import type { BillingCycle, NumberKind, PayMethod } from "../core/plans";
 import {
-  apiLogin, apiRegister, apiMe, apiWallet, apiBuyNumber, apiSubscribe, apiGetSubscription, apiSetAutoRenew,
+  apiLogin, apiRegister, apiMe, apiWallet, apiBuyNumber, apiReleaseNumber, apiSubscribe, apiGetSubscription, apiSetAutoRenew, apiCancelSubscription,
   apiResendVerification, apiGetCalls, apiGetNumbers, apiLogCall,
   apiGetActivity, apiLogActivity, apiMarkActivityRead, saveToken, clearToken, getToken, isNetworkError,
   type ApiUser, type ApiWallet, type ApiSubscription, type ApiCallLog, type ApiOwnedNumber, type ApiActivityItem,
@@ -109,6 +109,7 @@ type Action =
   | { t: "UPDATE_SETTINGS"; id: string; patch: Partial<NumberSettings> }
   | { t: "LOG_CALL"; call: CallLog }
   | { t: "SET_NUMBERS"; numbers: PhoneNumber[] }
+  | { t: "REMOVE_NUMBER"; id: string }
   | { t: "SET_BALANCE"; balance: number }
   | { t: "SET_BRAND"; brand: BrandInfo | null }
   | { t: "UPDATE_USER"; patch: Partial<User> }
@@ -232,6 +233,9 @@ function reducer(s: AppState, a: Action): AppState {
     case "BUY_NUMBER":
       return { ...s, numbers: [a.number, ...s.numbers] };
 
+    case "REMOVE_NUMBER":
+      return { ...s, numbers: s.numbers.filter((n) => n.id !== a.id) };
+
     case "SET_VERIFICATION":
       return {
         ...s,
@@ -339,6 +343,7 @@ interface Store {
   /** Buy/add a number. `free` claims the plan's included free number; otherwise
    *  it's a paid extra billed to the wallet. */
   buyNumber: (n: PhoneNumber, opts?: { kind?: NumberKind; free?: boolean }) => Promise<boolean>;
+  releaseNumber: (id: string) => Promise<boolean>;
   /** Subscribe to a bundle from the wallet. (Card = Stripe checkout in the UI.) */
   subscribe: (tier: string, cycle: BillingCycle, opts?: { pay?: PayMethod }) => Promise<boolean>;
   /** Activate a plan (from wallet) and claim a number free in one flow. */
@@ -347,6 +352,7 @@ interface Store {
   subscribeByCardAndBuy: (n: PhoneNumber, tier: string, cycle: BillingCycle) => Promise<boolean>;
   /** Toggle wallet-funded auto-renew for the active plan. */
   setAutoRenew: (on: boolean) => Promise<void>;
+  cancelSubscription: () => Promise<boolean>;
   /** Resend the signup email-verification link. */
   resendVerification: () => Promise<void>;
   /** Re-fetch the current user (e.g. to refresh email-verified status). */
@@ -817,6 +823,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [state.wallet.balance, pushActivity, showToast, refreshSubscription]);
 
+  // Release (give up) a number — frees it on Telnyx and stops its monthly rental.
+  const releaseNumber: Store["releaseNumber"] = useCallback(async (id) => {
+    const n = state.numbers.find((x) => x.id === id);
+    if (!n) return false;
+    if (telnyx.mode === "mock") {
+      dispatch({ t: "REMOVE_NUMBER", id });
+      showToast("Number released", "success");
+      return true;
+    }
+    try {
+      await apiReleaseNumber(toE164(n.number));
+      dispatch({ t: "REMOVE_NUMBER", id });
+      pushActivity({ kind: "number", title: "Number released", body: `${n.number} was released.`, time: "just now" });
+      refreshSubscription(); // number-capacity meter reflects the freed slot
+      showToast("Number released", "success");
+      return true;
+    } catch (e) { showToast(e instanceof Error ? e.message : "Couldn't release number", "error"); return false; }
+  }, [state.numbers, pushActivity, showToast, refreshSubscription]);
+
   // Subscribe to a bundle. Pay from wallet (default) or by card. LIVE only — the
   // server sets the price by tier+cycle, charges, and activates the plan.
   const subscribe: Store["subscribe"] = useCallback(async (tier, cycle, opts = {}) => {
@@ -894,6 +919,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       applySub(toAppSub(subscription));
     } catch (e) { showToast(e instanceof Error ? e.message : "Couldn't update auto-renew", "error"); }
   }, [state.subscription, showToast, applySub]);
+
+  // Cancel the active plan → revert to pay-as-you-go.
+  const cancelSubscription: Store["cancelSubscription"] = useCallback(async () => {
+    if (telnyx.mode === "mock") {
+      dispatch({ t: "SET_SUBSCRIPTION", subscription: null });
+      showToast("Plan cancelled", "success");
+      return true;
+    }
+    try {
+      const { subscription } = await apiCancelSubscription();
+      applySub(toAppSub(subscription));
+      showToast("Plan cancelled — you're now on pay-as-you-go", "success");
+      return true;
+    } catch (e) { showToast(e instanceof Error ? e.message : "Couldn't cancel plan", "error"); return false; }
+  }, [showToast, applySub]);
 
   // Search Telnyx for purchasable numbers of a chosen type (local or mobile),
   // priced retail (wholesale + markup). The buy screen lets the user pick the
@@ -998,7 +1038,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       login, logout, selectNumber, registerNumber, registerBrand, updateSettings,
       getNumberRequirements, submitNumberDoc, markNumberVerified,
       telnyxMode: telnyx.mode,
-      sendMessage, startConversation, markRead, placeCall, activeCall, answerCall, hangupCall, toggleCallMute, dismissCall, addBalance, setWallet, refreshWallet, syncBillingSoon, buyNumber, subscribe, subscribeAndBuy, subscribeByCardAndBuy, setAutoRenew, resendVerification, refreshUser, refreshSubscription, searchNumbers, readAllActivity,
+      sendMessage, startConversation, markRead, placeCall, activeCall, answerCall, hangupCall, toggleCallMute, dismissCall, addBalance, setWallet, refreshWallet, syncBillingSoon, buyNumber, releaseNumber, subscribe, subscribeAndBuy, subscribeByCardAndBuy, setAutoRenew, cancelSubscription, resendVerification, refreshUser, refreshSubscription, searchNumbers, readAllActivity,
       updateUser, togglePref, block, unblock,
     }}>
       {children}

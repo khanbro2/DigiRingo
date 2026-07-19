@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "349718080550",
+    "project_id": "digi-ringo",
+    "storage_bucket": "digi-ringo.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:349718080550:android:18acbd5c9eef1353898ae7",
+        "android_client_info": {
+          "package_name": "com.digiringo.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCWN3T74TmRXKJ3UU5BJVpnwclRd7oHDsA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
