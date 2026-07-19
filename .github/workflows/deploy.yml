@@ -73,10 +73,11 @@ jobs:
           fi
           echo "✓ deploy key parses OK ($(ssh-keygen -lf ~/.ssh/deploy_key 2>/dev/null | awk '{print $1, $4}'))"
           SSH="ssh -i ~/.ssh/deploy_key -p $SSH_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ServerAliveInterval=15 -o ConnectTimeout=25 $SSH_USER@$SSH_HOST"
-          echo '→ testing SSH auth (verbose on failure)…'
+          echo '→ testing SSH auth…'
           if ! $SSH 'echo SSH_OK'; then
-            echo "::warning::SSH test failed — verbose handshake follows:"
-            ssh -v -i ~/.ssh/deploy_key -p $SSH_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=25 -o BatchMode=yes "$SSH_USER@$SSH_HOST" 'echo SSH_OK' 2>&1 | grep -iE 'debug1: (Connecting|Connection|Authenticat|Offering|Server accepts)|Permission denied|refused|timed out|reset|no matching' || true
+            V=$(ssh -v -i ~/.ssh/deploy_key -p $SSH_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=25 -o BatchMode=yes "$SSH_USER@$SSH_HOST" 'echo SSH_OK' 2>&1 || true)
+            R=$(echo "$V" | grep -iE 'Permission denied|Connection (timed out|refused|reset|closed)|Operation timed out|kex_exchange_identification|no matching|Authenticated to|Host key verification|Too many authentication' | head -4 | tr '\n' ' ~ ')
+            echo "::error::SSH failed → ${R:-unknown (see step log)}"
             exit 1
           fi
           echo '→ shipping front-end (dist)…'
