@@ -457,6 +457,59 @@ async function ensureUserSipCredential(uid) {
   return { credentialId: connId, sipUsername: username, password };
 }
 
+/* Per-DEVICE WebRTC identity. A Telnyx credential connection accepts only ONE
+ * registration at a time, so the phone and the browser sharing the per-USER
+ * credential kicked each other in a ~2s takeover loop and inbound rang neither.
+ * Giving each device its OWN credential lets them all stay registered; the
+ * inbound TeXML then rings every active device in parallel (ring on BOTH). */
+const MAX_DEVICES_PER_USER = 5;
+const deviceSipUsername = (uid, deviceId) =>
+  `digiringou${uid}d` + createHmac("sha256", process.env.AUTH_SECRET || "digiringo").update("sipdevice:" + uid + ":" + deviceId).digest("hex").slice(0, 10);
+const deviceSipPassword = (uid, deviceId) =>
+  "Dg" + createHmac("sha256", process.env.AUTH_SECRET || "digiringo").update("sipdevicepw:" + uid + ":" + deviceId).digest("hex").slice(0, 26);
+
+async function ensureDeviceSipCredential(uid, deviceId, platform = "") {
+  const username = deviceSipUsername(uid, deviceId);
+  const password = deviceSipPassword(uid, deviceId);
+
+  // Reuse this device's credential connection if it still exists on Telnyx.
+  const existing = await db.getSipDevice(uid, deviceId).catch(() => null);
+  if (existing?.sipCredentialId) {
+    const chk = await telnyxFetch(`/credential_connections/${existing.sipCredentialId}`).catch(() => null);
+    if (chk && chk.ok) {
+      await telnyxFetch(`/credential_connections/${existing.sipCredentialId}`, {
+        method: "PATCH", body: JSON.stringify({ user_name: username, password, sip_uri_calling_preference: "unrestricted" }),
+      }).catch(() => {});
+      await db.upsertSipDevice(uid, { deviceId, sipUsername: username, sipCredentialId: existing.sipCredentialId, platform });
+      return { credentialId: existing.sipCredentialId, sipUsername: username, password };
+    }
+  }
+
+  // Evict the least-recently-used device(s) so credential connections stay bounded.
+  try {
+    const devs = await db.listSipDevices(uid);
+    const stale = devs.filter((d) => d.deviceId !== deviceId).slice(MAX_DEVICES_PER_USER - 1);
+    for (const d of stale) {
+      if (d.sipCredentialId) await telnyxFetch(`/credential_connections/${d.sipCredentialId}`, { method: "DELETE" }).catch(() => {});
+      await db.deleteSipDevice(uid, d.deviceId).catch(() => {});
+    }
+  } catch { /* eviction is best-effort */ }
+
+  // Create a fresh per-device credential connection (+ OVP so outbound works).
+  const ovp = await ensureOutboundProfileId().catch(() => null);
+  const cr = await telnyxFetch("/credential_connections", {
+    method: "POST", body: JSON.stringify({ connection_name: `DIGIRINGO u${uid} ${platform || "dev"} ${username}`.slice(0, 60), user_name: username, password, sip_uri_calling_preference: "unrestricted" }),
+  });
+  const cj = await cr.json().catch(() => ({}));
+  if (!cr.ok || !cj?.data?.id) throw new Error(cj?.errors?.[0]?.detail || "Could not create device voice identity");
+  const connId = cj.data.id;
+  if (ovp) await telnyxFetch(`/credential_connections/${connId}`, {
+    method: "PATCH", body: JSON.stringify({ outbound: { outbound_voice_profile_id: ovp } }),
+  }).catch(() => {});
+  await db.upsertSipDevice(uid, { deviceId, sipUsername: username, sipCredentialId: connId, platform });
+  return { credentialId: connId, sipUsername: username, password };
+}
+
 /* --------------------------------------------------- incoming-call routing (TeXML)
  * Every owned number points its inbound at ONE TeXML application whose Voice URL
  * is /webhooks/texml here. On an inbound call we answer with TeXML that rings the
@@ -540,13 +593,23 @@ async function inboundTeXML({ stage, to, from }) {
 
   const qs = (s) => `${PUBLIC_BASE}/webhooks/texml?stage=${s}&to=${encodeURIComponent(to)}&from=${encodeURIComponent(from)}`;
 
-  // Stage 1: ring the in-app WebRTC softphone (if the user has a SIP identity).
-  if (stage === "start" && owner.sipUsername) {
-    return texmlResponse(
-      `  <Dial timeout="30" timeLimit="${capSec}" answerOnBridge="true" callerId="${xmlEsc(from)}" action="${xmlEsc(qs("fwd"))}" method="POST">\n` +
-      `    <Sip>sip:${xmlEsc(owner.sipUsername)}@sip.telnyx.com</Sip>\n` +
-      `  </Dial>`
-    );
+  // Stage 1: ring the in-app WebRTC softphone(s). Every signed-in device has its
+  // own SIP identity, so we <Dial> them ALL in one leg — Telnyx forks the INVITE
+  // in parallel and the call rings the phone AND the browser (AND any other
+  // device) at once; first to answer wins. Falls back to the legacy per-user
+  // identity for accounts that haven't signed in on the new client yet.
+  if (stage === "start") {
+    let sipUsers = [];
+    try { sipUsers = await db.getActiveSipUsernames(owner.userId); } catch { /* table may not exist yet */ }
+    if (owner.sipUsername && !sipUsers.includes(owner.sipUsername)) sipUsers.push(owner.sipUsername);
+    if (sipUsers.length) {
+      const nouns = sipUsers.map((u) => `    <Sip>sip:${xmlEsc(u)}@sip.telnyx.com</Sip>`).join("\n");
+      return texmlResponse(
+        `  <Dial timeout="30" timeLimit="${capSec}" answerOnBridge="true" callerId="${xmlEsc(from)}" action="${xmlEsc(qs("fwd"))}" method="POST">\n` +
+        `${nouns}\n` +
+        `  </Dial>`
+      );
+    }
   }
   // Stage 2: forward to the user's real cellphone (if set).
   if ((stage === "start" || stage === "fwd") && owner.forwardNumber) {
@@ -1497,17 +1560,24 @@ createServer(async (req, res) => {
     const uid = db ? db.verifyToken(bearer(req)) : null;
     if (!uid) return send(res, 401, { error: "Not authenticated" });
     try {
+      // A stable per-device id lets each signed-in device keep its OWN SIP
+      // identity, so the phone and the browser can both stay registered and both
+      // ring. Older clients don't send one → fall back to the per-user credential.
+      let deviceId = "", platform = "";
+      try { const b = JSON.parse((await readBody(req)) || "{}"); deviceId = String(b.deviceId || "").replace(/[^A-Za-z0-9]/g, "").slice(0, 48); platform = String(b.platform || "").slice(0, 16); } catch { /* no body */ }
+
       let callerNumber = null, callerName = null;
       try {
         const nums = await db.listNumbers(uid);
         if (nums && nums[0]) callerNumber = nums[0].e164;
       } catch { /* no numbers yet — caller id falls back to connection default */ }
       try { const u = await db.getUser?.(uid); callerName = u?.name || null; } catch { /* optional */ }
-      // Per-user CREDENTIAL CONNECTION login (static user/pass) so the client
-      // both places AND receives calls — inbound rings the right user's app.
+      // Per-device (or, for legacy clients, per-user) CREDENTIAL CONNECTION login
+      // (static user/pass) so the client both places AND receives calls.
       try {
-        const { sipUsername, password } = await ensureUserSipCredential(uid);
-        console.error(`☎ RTC-TOKEN uid=${uid} sip=${sipUsername} caller=${callerNumber}`); // TEMP diagnostic
+        const { sipUsername, password } = deviceId
+          ? await ensureDeviceSipCredential(uid, deviceId, platform)
+          : await ensureUserSipCredential(uid);
         return send(res, 200, { login: sipUsername, password, sipUsername, callerNumber, callerName });
       } catch (e) {
         // Fallback to the shared static credential so voice still works at all.

@@ -660,6 +660,83 @@ export async function setSipCredential(uid, { sipUsername, sipCredentialId }) {
   );
 }
 
+/* ---------------------------------------------------- per-DEVICE SIP identities
+ * Each signed-in device gets its OWN Telnyx credential connection so several can
+ * stay registered at once (a single credential accepts only one registration and
+ * the clients kick each other in a loop). The inbound TeXML then rings every
+ * active device in parallel. See 014_sip_devices.sql. The table is self-created
+ * on first use because Hostinger blocks the shell (migrations can't be run by hand). */
+let sipDevicesReady = false;
+async function ensureSipDevicesTable() {
+  if (sipDevicesReady) return;
+  await pool.query(`CREATE TABLE IF NOT EXISTS sip_devices (
+    id                BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    user_id           BIGINT       NOT NULL,
+    device_id         VARCHAR(64)  NOT NULL,
+    sip_username      VARCHAR(64)  NOT NULL,
+    sip_credential_id VARCHAR(64)  NOT NULL,
+    platform          VARCHAR(16)  NOT NULL DEFAULT '',
+    last_seen         TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_user_device (user_id, device_id),
+    UNIQUE KEY uq_sip_username (sip_username),
+    INDEX idx_sipdev_user (user_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+  sipDevicesReady = true;
+}
+
+/** The device's stored SIP identity, if we've already provisioned one. */
+export async function getSipDevice(uid, deviceId) {
+  await ensureSipDevicesTable();
+  const [rows] = await pool.query(
+    "SELECT device_id, sip_username, sip_credential_id, platform FROM sip_devices WHERE user_id = ? AND device_id = ? LIMIT 1",
+    [uid, String(deviceId)]
+  );
+  const r = rows[0];
+  return r ? { deviceId: r.device_id, sipUsername: r.sip_username, sipCredentialId: r.sip_credential_id, platform: r.platform || "" } : null;
+}
+
+/** Create/refresh a device's SIP identity and bump last_seen (registration ping). */
+export async function upsertSipDevice(uid, { deviceId, sipUsername, sipCredentialId, platform }) {
+  await ensureSipDevicesTable();
+  await pool.query(
+    `INSERT INTO sip_devices (user_id, device_id, sip_username, sip_credential_id, platform, last_seen)
+       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+     ON DUPLICATE KEY UPDATE sip_username = VALUES(sip_username), sip_credential_id = VALUES(sip_credential_id),
+       platform = VALUES(platform), last_seen = CURRENT_TIMESTAMP`,
+    [uid, String(deviceId), String(sipUsername), String(sipCredentialId), String(platform || "")]
+  );
+}
+
+/** All of a user's devices, most-recently-seen first (for LRU eviction + reuse). */
+export async function listSipDevices(uid) {
+  await ensureSipDevicesTable();
+  const [rows] = await pool.query(
+    "SELECT device_id, sip_username, sip_credential_id, platform, last_seen FROM sip_devices WHERE user_id = ? ORDER BY last_seen DESC",
+    [uid]
+  );
+  return rows.map((r) => ({ deviceId: r.device_id, sipUsername: r.sip_username, sipCredentialId: r.sip_credential_id, platform: r.platform || "", lastSeen: r.last_seen }));
+}
+
+/** Drop a device row (used when evicting the least-recently-used credential). */
+export async function deleteSipDevice(uid, deviceId) {
+  await ensureSipDevicesTable();
+  await pool.query("DELETE FROM sip_devices WHERE user_id = ? AND device_id = ?", [uid, String(deviceId)]);
+}
+
+/** SIP usernames to ring for an inbound call: every device seen recently, newest
+ *  first, capped so a pile of stale devices can't bloat the parallel <Dial>. */
+export async function getActiveSipUsernames(uid, { withinDays = 45, limit = 5 } = {}) {
+  await ensureSipDevicesTable();
+  const [rows] = await pool.query(
+    `SELECT sip_username FROM sip_devices
+       WHERE user_id = ? AND last_seen >= (NOW() - INTERVAL ? DAY)
+       ORDER BY last_seen DESC LIMIT ?`,
+    [uid, Number(withinDays), Number(limit)]
+  );
+  return rows.map((r) => r.sip_username).filter(Boolean);
+}
+
 /** Resolve who owns a DIGIRINGO number + their call-routing settings, for inbound
  *  TeXML routing. Matches on the E.164 of an active number. */
 export async function findNumberOwner(e164) {

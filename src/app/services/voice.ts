@@ -143,11 +143,31 @@ function stopHeartbeat() {
 // Fetch the connection's STATIC SIP credentials (username/password). We log in
 // with these — not an on-demand token — so the client also RECEIVES inbound
 // calls (Telnyx on-demand credentials are outbound-only).
+// A stable per-device id so this device keeps its OWN Telnyx SIP identity — that
+// lets the phone and the browser BOTH stay registered and BOTH ring (a single
+// shared identity let them kick each other off Telnyx in a loop).
+function deviceId(): string {
+  try {
+    const KEY = "dg-device-id";
+    let id = localStorage.getItem(KEY);
+    if (!id) {
+      id = (crypto?.randomUUID?.() || `${Date.now()}${Math.random()}`).replace(/[^A-Za-z0-9]/g, "").slice(0, 32);
+      localStorage.setItem(KEY, id);
+    }
+    return id;
+  } catch { return ""; }
+}
+function devicePlatform(): string {
+  const c = (window as unknown as { Capacitor?: { getPlatform?: () => string } }).Capacitor;
+  return c?.getPlatform?.() || "web";
+}
+
 async function fetchCreds(): Promise<{ loginToken: string | null; login: string | null; password: string | null; callerNumber: string | null; callerName: string | null }> {
   const t = getToken();
   const r = await fetch(`${API_BASE}/rtc-token`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(t ? { Authorization: `Bearer ${t}` } : {}) },
+    body: JSON.stringify({ deviceId: deviceId(), platform: devicePlatform() }),
   });
   const j = await r.json().catch(() => ({}));
   // Prefer a per-user login token (unique SIP identity); fall back to the shared

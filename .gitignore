@@ -29,3 +29,7 @@ Thumbs.db
 # Android signing keys — never commit
 *.jks
 *.keystore
+
+# dev screenshots / reference captures (not part of the app)
+/*.png
+/refference/
