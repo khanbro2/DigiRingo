@@ -60,22 +60,25 @@ async function accessToken() {
  * error } — gone=true means the token is dead (UNREGISTERED / not found) and the
  * caller should delete it from the DB.
  */
-export async function sendFcm(token, { title, body, data = {} } = {}) {
+export async function sendFcm(token, { title, body, data = {}, dataOnly = false } = {}) {
   const sa = serviceAccount();
   if (!sa) return { ok: false, error: "not configured" };
   try {
     const at = await accessToken();
     const message = {
       token,
-      notification: { title, body },
       data: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])),
-      // High priority so it wakes a dozing device; no channel_id → FCM uses its
-      // auto-created fallback channel (always exists, so the notification shows).
-      android: {
-        priority: "high",
-        notification: { sound: "default", default_sound: true },
-      },
+      // High priority so it wakes a dozing/killed device.
+      android: { priority: "high" },
     };
+    // `dataOnly` messages are delivered to the app's MessagingService in EVERY
+    // state (so our native code can draw a full-screen call UI). A `notification`
+    // block would instead make the OS draw a plain tray notification when the app
+    // is backgrounded — used for SMS alerts, not calls.
+    if (!dataOnly) {
+      message.notification = { title, body };
+      message.android.notification = { sound: "default", default_sound: true };
+    }
     const r = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
       method: "POST",
       headers: { Authorization: `Bearer ${at}`, "Content-Type": "application/json" },
@@ -85,6 +88,7 @@ export async function sendFcm(token, { title, body, data = {} } = {}) {
     const j = await r.json().catch(() => ({}));
     const code = j?.error?.status || "";
     const gone = code === "NOT_FOUND" || code === "UNREGISTERED" || r.status === 404;
+    console.error(`📲 FCM send FAIL http=${r.status} status=${code} msg=${j?.error?.message || "?"} proj=${sa.project_id}`); // TEMP diagnostic
     return { ok: false, gone, error: j?.error?.message || `HTTP ${r.status}` };
   } catch (e) { return { ok: false, error: e.message }; }
 }

@@ -31,7 +31,7 @@ import { numberPrice, bundleCharge } from "./plans.mjs";
 import { sendPush, vapidPublicKey, webPushConfigured } from "./webpush.mjs";
 import { createCheckoutSession as stripeCheckout, verifyWebhook as stripeVerify, publishableKey as stripePubKey, stripeConfigured, createCustomer as stripeCreateCustomer, createSetupSession as stripeSetupSession, cardFromIntent as stripeCardFromIntent } from "./stripe.mjs";
 import * as settings from "./settings-store.mjs";
-import { sendFcmToUser, fcmConfigured } from "./fcm.mjs";
+import { sendFcmToUser, sendFcm, fcmConfigured } from "./fcm.mjs";
 
 // Resolve the app root and load env from a `.env` there (DB creds + all secrets)
 // if present — keeps the deployment self-contained and SSH-configurable.
@@ -642,9 +642,14 @@ async function notifyIncomingCall(userId, from) {
   if (fcmConfigured()) {
     try {
       const tokens = await db.getPushTokens(userId);
-      await sendFcmToUser(tokens, { title, body, data: { type: "call", from: from || "" } }, (t) => db.deletePushToken(t));
+      // NB: `from` is a RESERVED key in an FCM data payload — including it makes
+      // FCM reject the whole message with 400 INVALID_ARGUMENT. Use `caller`.
+      // dataOnly → the native app builds a full-screen CallStyle notification
+      // (Answer/Decline + caller) in every state, instead of a plain tray alert.
+      const r = await sendFcmToUser(tokens, { title, body, dataOnly: true, data: { type: "call", caller: from || "" } }, (t) => db.deletePushToken(t));
+      console.error(`📲 FCM call-alert uid=${userId} tokens=${tokens.length} sent=${r.sent}/${r.total}`); // TEMP diagnostic
     } catch (e) { console.error("notifyIncomingCall (fcm):", e.message); }
-  }
+  } else { console.error(`📲 FCM not configured — no call alert for uid=${userId}`); }
 }
 
 /** Alert a user's browsers AND native app on inbound SMS (backgrounded/closed). */
@@ -664,7 +669,8 @@ async function notifyIncomingSms(userId, from, text) {
   if (fcmConfigured()) {
     try {
       const tokens = await db.getPushTokens(userId);
-      await sendFcmToUser(tokens, { title, body, data: { type: "sms", from: from || "" } }, (t) => db.deletePushToken(t));
+      // `from` is reserved in FCM data payloads (400 INVALID_ARGUMENT) — use `caller`.
+      await sendFcmToUser(tokens, { title, body, data: { type: "sms", caller: from || "" } }, (t) => db.deletePushToken(t));
     } catch (e) { console.error("notifyIncomingSms (fcm):", e.message); }
   }
 }
@@ -1696,8 +1702,28 @@ createServer(async (req, res) => {
     const body = await readBody(req);
     let d; try { d = JSON.parse(body || "{}"); } catch { d = {}; }
     if (!d.token) return send(res, 400, { error: "token required" });
+    console.error(`📲 PUSH-TOKEN saved uid=${uid} platform=${d.platform || "android"} tok=${String(d.token).slice(0, 18)}…`); // TEMP diagnostic
     try { await db.savePushToken(uid, d.token, d.platform || "android"); return send(res, 200, { ok: true }); }
     catch (e) { return send(res, 500, { error: e.message }); }
+  }
+
+  // TEMP diagnostic: fire a test FCM to a user's saved tokens and report the raw
+  // per-token result. Guarded by a shared secret so it isn't publicly abusable.
+  if (req.url?.startsWith("/api/_fcmtest") && req.method === "GET") {
+    const q = new URL(req.url, "http://x").searchParams;
+    if (q.get("k") !== "fcmdiag-7z3k9") return send(res, 403, { error: "forbidden" });
+    const u = Number(q.get("u") || 0);
+    if (!db || !u) return send(res, 400, { error: "u required" });
+    try {
+      const tokens = await db.getPushTokens(u);
+      const results = [];
+      for (const t of tokens) {
+        const tok = typeof t === "string" ? t : t.token;
+        const r = await sendFcm(tok, { title: "Incoming call", body: "+1 555 0100", dataOnly: true, data: { type: "call", caller: "+1 555 0100" } });
+        results.push({ tok: String(tok).slice(0, 16) + "…", ...r });
+      }
+      return send(res, 200, { configured: fcmConfigured(), count: tokens.length, results });
+    } catch (e) { return send(res, 500, { error: e.message }); }
   }
 
   // Anything that isn't an API/webhook route → serve the built front-end.
