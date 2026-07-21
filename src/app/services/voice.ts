@@ -84,6 +84,32 @@ let beatTimer: ReturnType<typeof setInterval> | null = null;
 let mockTimers: ReturnType<typeof setTimeout>[] = [];
 let lastStats: { lost: number; recv: number } | null = null;
 
+/* -------------------------------------- Android full-screen call notification */
+// The native CallMessagingService turns an incoming-call FCM into a WhatsApp-style
+// full-screen notification and, on Answer/Decline (or a lock-screen full-screen
+// launch), calls window.__dgCallAction(...) → these hooks. The push can beat the
+// WebRTC inbound leg (cold start / lock screen), so an action with no live call
+// yet is QUEUED and applied the moment the real call lands (see onNotification).
+let pendingNative: "answer" | "decline" | null = null;
+let pendingNativeAt = 0;
+// True while a native notification is the one ringing (background / lock screen),
+// so the in-app ringtone stays silent and we don't double-ring.
+let nativeCallActive = false;
+const PENDING_TTL_MS = 30_000;
+
+/** Whether the native full-screen notification currently owns the ring. The
+ *  in-app InCallScreen reads this to avoid a second, overlapping ringtone. */
+export function isNativeRinging(): boolean { return nativeCallActive; }
+
+/** Ask the Android shell to dismiss the ringing full-screen call notification
+ *  (once the call is answered/declined in-app). No-op on web. */
+function clearNativeCallNotification(): void {
+  try {
+    (window as unknown as { DigiNative?: { clearCallNotification?: () => void } })
+      .DigiNative?.clearCallNotification?.();
+  } catch { /* not native */ }
+}
+
 /* ------------------------------------------------- talk-time budget (server) */
 // The server pools plan minutes + wallet-funded overflow across every profile
 // of the account. We ask before dialing (gate) and every 15s during a call
@@ -226,12 +252,17 @@ function onNotification(n: { type?: string; call?: AnyCall }) {
   if (isNewInbound) {
     console.info("[voice] ✅ INCOMING → showing ring UI", c.id);
     call = c;
+    // Inbound while the app is hidden → the native FCM notification is (or will
+    // be) ringing, so let it own the ring and keep the in-app ringtone silent.
+    if (devicePlatform() !== "web" && typeof document !== "undefined" && document.hidden) nativeCallActive = true;
     pushSnap({
       phase: "incoming", direction: "inbound",
       contact: (c.options?.remoteCallerNumber || (c as { remoteCallerNumber?: string }).remoteCallerNumber || "Unknown caller") as string,
       callerNumber: myCaller, muted: false, quality: "unknown", startedAt: null,
       remainingSec: null, remainingAt: null,
     });
+    // A native Answer/Decline that arrived before this leg → apply it now.
+    applyPendingNative();
     return;
   }
   // Update for the call we're tracking.
@@ -297,6 +328,7 @@ function endCall() {
   mockTimers.forEach(clearTimeout); mockTimers = [];
   lastStats = null;
   call = null;
+  nativeCallActive = false;
 }
 
 /* -------------------------------------------------------------------- public */
@@ -362,6 +394,9 @@ export async function startCall(destination: string, callerNumber: string | null
 
 /** Answer the ringing inbound call. */
 export function answerCall() {
+  clearNativeCallNotification();
+  nativeCallActive = false;
+  pendingNative = null;
   try {
     if (live && call) call.answer();
     else if (!live && snap?.phase === "incoming") emit({ phase: "active", startedAt: Date.now() });
@@ -369,6 +404,9 @@ export function answerCall() {
 }
 
 export function hangupCall() {
+  clearNativeCallNotification();
+  nativeCallActive = false;
+  pendingNative = null;
   try { if (live && call) call.hangup(); } catch { /* ignore */ }
   const wasIncoming = snap?.phase === "incoming";
   endCall();
@@ -385,6 +423,57 @@ export function toggleMute(): boolean {
 
 /** Dismiss the ended/failed overlay. */
 export function clearCall() { endCall(); snap = null; notify(); }
+
+/* ---------------------------------- native full-screen call notification bridge */
+
+/** Apply a queued native Answer/Decline once the real WebRTC leg is ringing. */
+function applyPendingNative() {
+  if (!pendingNative) return;
+  if (Date.now() - pendingNativeAt > PENDING_TTL_MS) { pendingNative = null; return; }
+  if (!(live && call) || snap?.phase !== "incoming") return; // wait for the leg
+  const act = pendingNative; pendingNative = null;
+  if (act === "answer") answerCall();
+  else hangupCall();
+}
+
+/** Seed the in-app incoming UI from the native push (caller number) so a cold /
+ *  lock-screen launch shows the call screen instead of the dashboard, even before
+ *  the WebRTC leg arrives. The real call overwrites it when it lands. */
+function showNativeIncoming(caller: string) {
+  if (snap && snap.phase !== "ended" && snap.phase !== "failed") return; // already live
+  pushSnap({
+    phase: "incoming", direction: "inbound",
+    contact: caller && caller !== "Unknown caller" ? caller : "Incoming call",
+    callerNumber: myCaller, muted: false, quality: "unknown",
+    startedAt: null, remainingSec: null, remainingAt: null,
+  });
+}
+
+// Called by the Android shell (MainActivity.injectCallAction) when the user acts
+// on the full-screen call notification, or when it launches the app over the lock
+// screen. No-op on web (never invoked there).
+if (typeof window !== "undefined") {
+  (window as unknown as { __dgCallAction?: (action: string, caller?: string) => void }).__dgCallAction =
+    (action, caller = "") => {
+      if (action === "decline") {
+        if (live && call) { hangupCall(); return; }
+        // No leg yet → remember the decline and drop any seeded UI.
+        pendingNative = "decline"; pendingNativeAt = Date.now();
+        clearNativeCallNotification();
+        if (snap && snap.phase === "incoming") clearCall();
+        return;
+      }
+      // "answer" or "show": a native notification is ringing; bring up the softphone
+      // and surface the call UI now (over the lock screen).
+      nativeCallActive = true;
+      register();
+      showNativeIncoming(caller);
+      if (action === "answer") {
+        if (live && call && snap?.phase === "incoming") answerCall();
+        else { pendingNative = "answer"; pendingNativeAt = Date.now(); }
+      }
+    };
+}
 
 // Dev-only: preview the incoming-call UI in mock mode (window.__dgIncoming()).
 if (!live && typeof window !== "undefined") {

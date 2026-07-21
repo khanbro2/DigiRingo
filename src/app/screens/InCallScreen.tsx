@@ -3,7 +3,7 @@ import { Mic, MicOff, PhoneOff, Phone, Volume2, X } from "lucide-react";
 import { font } from "../core/theme";
 import { useApp } from "../store/AppStore";
 import { startRingtone, stopRingtone } from "../services/ringtone";
-import type { CallQuality } from "../services/voice";
+import { isNativeRinging, type CallQuality } from "../services/voice";
 
 /**
  * In-call overlay for the WebRTC softphone. Shows connecting / ringing / active
@@ -30,10 +30,21 @@ export function InCallScreen({ desktop }: { desktop?: boolean }) {
   }, [activeCall?.phase, dismissCall]);
 
   // Ring out loud while an incoming call is ringing; stop once answered/ended.
+  // On native, when the app is backgrounded / on the lock screen the Android
+  // full-screen notification is the one ringing — skip the in-app ringtone then
+  // (it'd double up, and WebView autoplay blocks it anyway with no user gesture).
   useEffect(() => {
-    if (activeCall?.phase === "incoming") startRingtone();
-    else stopRingtone();
-    return () => stopRingtone();
+    const evaluate = () => {
+      const visible = typeof document === "undefined" || document.visibilityState === "visible";
+      if (activeCall?.phase === "incoming" && visible && !isNativeRinging()) startRingtone();
+      else stopRingtone();
+    };
+    evaluate();
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", evaluate);
+    return () => {
+      if (typeof document !== "undefined") document.removeEventListener("visibilitychange", evaluate);
+      stopRingtone();
+    };
   }, [activeCall?.phase]);
 
   if (!activeCall) return null;

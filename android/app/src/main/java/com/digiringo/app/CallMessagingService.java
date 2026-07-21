@@ -75,11 +75,16 @@ public class CallMessagingService extends com.capacitorjs.plugins.pushnotificati
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setOngoing(true)
                 .setAutoCancel(false)
+                .setContentIntent(fullScreenPI)
                 .setFullScreenIntent(fullScreenPI, true)
                 .setStyle(NotificationCompat.CallStyle.forIncomingCall(caller_, declinePI, answerPI));
 
+        Notification n = b.build();
+        // Loop the ringtone until the call is answered/declined (a plain
+        // notification would play the sound only once).
+        n.flags |= Notification.FLAG_INSISTENT;
         try {
-            NotificationManagerCompat.from(this).notify(CALL_NOTIF_ID, b.build());
+            NotificationManagerCompat.from(this).notify(CALL_NOTIF_ID, n);
         } catch (SecurityException e) {
             // POST_NOTIFICATIONS not granted — nothing to show.
         }
