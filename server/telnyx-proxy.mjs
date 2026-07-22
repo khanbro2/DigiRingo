@@ -838,8 +838,10 @@ async function ownedNumberId(e164) {
   return idMap.get(digits(e164)) ?? digits(e164); // fall back to E.164 digits
 }
 
-async function conversationsPayload() {
-  const list = db ? await db.getThreads() : [...threads.values()];
+async function conversationsPayload(uid) {
+  // Per-user scoping: the DB path filters threads to this user's numbers. The
+  // in-memory dev fallback isn't multi-tenant, so only expose it without a db.
+  const list = db ? await db.getThreads(uid) : [...threads.values()];
   const out = [];
   for (const t of list) {
     out.push({
@@ -1747,16 +1749,18 @@ createServer(async (req, res) => {
     return send(res, 403, { errors: [{ detail: "Use /api/numbers/buy to purchase numbers." }] });
   }
 
-  // 2) Inbox: serve conversations from the store (DB when available)
+  // 2) Inbox: serve conversations from the store (DB when available). SCOPED to
+  //    the authenticated user so nobody ever sees another user's messages.
   if (req.method === "GET" && path.startsWith("/messaging/conversations")) {
-    return send(res, 200, await conversationsPayload());
+    return send(res, 200, await conversationsPayload(tnUid));
   }
 
-  // Mark a thread's inbound messages read (clears the unread badge).
+  // Mark a thread's inbound messages read (clears the unread badge). Scoped to
+  // the caller's own numbers.
   if (req.method === "POST" && path.startsWith("/messaging/read")) {
     const rb = await readBody(req);
     let d = {}; try { d = JSON.parse(rb || "{}"); } catch { /* ignore */ }
-    if (db && d.owned && d.contact) await db.markThreadRead(d.owned, d.contact).catch(() => {});
+    if (db && d.owned && d.contact && tnUid) await db.markThreadRead(d.owned, d.contact, tnUid).catch(() => {});
     return send(res, 200, { ok: true });
   }
 
@@ -1781,6 +1785,19 @@ createServer(async (req, res) => {
   }
 
   const body = await readBody(req);
+
+  // Tenancy guard: a regular user may only send SMS FROM a number they own —
+  // never spoof another user's number. (Admins, tnUid null, skip this.)
+  if (req.method === "POST" && path.startsWith("/messages") && tnUid && db) {
+    let from = "";
+    try { from = JSON.parse(body || "{}").from || ""; } catch { /* ignore */ }
+    if (from) {
+      const owner = await db.findNumberOwner(from).catch(() => null);
+      if (!owner || Number(owner.userId) !== Number(tnUid)) {
+        return send(res, 403, { errors: [{ detail: "You can only send from a number you own." }] });
+      }
+    }
+  }
 
   // 3) Everything else → forward to Telnyx with the secret key
   try {

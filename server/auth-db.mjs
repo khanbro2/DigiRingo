@@ -271,20 +271,33 @@ export async function updateMessageStatus(telnyxId, status) {
 
 /** Mark a thread's inbound messages as read (clears the unread badge). Matches on
  *  digits only so "+44 7700…" and "447700…" are treated the same. */
-export async function markThreadRead(owned, contact) {
+export async function markThreadRead(owned, contact, uid) {
+  if (!uid) return;
   await pool.query(
     `UPDATE messages SET status = 'read'
        WHERE REGEXP_REPLACE(owned, '[^0-9]', '') = REGEXP_REPLACE(?, '[^0-9]', '')
          AND REGEXP_REPLACE(contact, '[^0-9]', '') = REGEXP_REPLACE(?, '[^0-9]', '')
-         AND direction = 'inbound' AND status <> 'read'`,
-    [owned, contact]
+         AND direction = 'inbound' AND status <> 'read'
+         AND EXISTS (SELECT 1 FROM numbers n WHERE n.user_id = ?
+                       AND REGEXP_REPLACE(n.e164, '[^0-9]', '') = REGEXP_REPLACE(?, '[^0-9]', ''))`,
+    [owned, contact, Number(uid), owned]
   );
 }
 
-/** Group all messages into conversation threads (owned number ↔ contact). */
-export async function getThreads() {
+/** Group a user's messages into conversation threads (owned number ↔ contact).
+ *  SCOPED per-user: only threads whose `owned` number belongs to `uid` are
+ *  returned — a user must NEVER see another user's inbox. Matches on digits so
+ *  "+1 (770)…" and "1770…" are the same number. */
+export async function getThreads(uid) {
+  if (!uid) return [];
   const [rows] = await pool.query(
-    "SELECT owned, contact, direction, body, status, telnyx_id, created_at FROM messages ORDER BY id ASC"
+    `SELECT m.owned, m.contact, m.direction, m.body, m.status, m.telnyx_id, m.created_at
+       FROM messages m
+       JOIN numbers n
+         ON REGEXP_REPLACE(n.e164, '[^0-9]', '') = REGEXP_REPLACE(m.owned, '[^0-9]', '')
+      WHERE n.user_id = ?
+      ORDER BY m.id ASC`,
+    [Number(uid)]
   );
   const map = new Map();
   for (const m of rows) {
