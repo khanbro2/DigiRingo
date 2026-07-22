@@ -1349,6 +1349,35 @@ export async function adminListNumbers({ q = "", limit = 1000 } = {}) {
   }));
 }
 
+/** TEMP read-only diagnostic: for a name/email query, return every matching
+ *  user with ALL their number rows (any status — including released/past_due,
+ *  which the normal list hides) plus recent activity. Used to investigate
+ *  "my numbers disappeared" reports; remove once resolved. */
+export async function adminNumberDiag(q) {
+  const like = `%${String(q || "").trim()}%`;
+  const [users] = await pool.query(
+    "SELECT id, email, name, status, wallet_balance, created_at FROM users WHERE email LIKE ? OR name LIKE ? ORDER BY id DESC LIMIT 10",
+    [like, like]
+  );
+  const out = [];
+  for (const u of users) {
+    const [nums] = await pool.query(
+      "SELECT id, e164, kind, status, free, telnyx_id, renews_at, created_at FROM numbers WHERE user_id = ? ORDER BY id ASC",
+      [u.id]
+    );
+    const [acts] = await pool.query(
+      "SELECT kind, title, body, created_at FROM activity_log WHERE user_id = ? ORDER BY id DESC LIMIT 30",
+      [u.id]
+    );
+    out.push({
+      user: { id: u.id, email: u.email, name: u.name, status: u.status, wallet: Number(u.wallet_balance) || 0, joined: u.created_at },
+      numbers: nums,
+      activity: acts,
+    });
+  }
+  return { query: q, matches: users.length, users: out };
+}
+
 /** The full platform wallet ledger (all users), newest first. */
 export async function adminListTransactions({ limit = 500 } = {}) {
   const [rows] = await pool.query(

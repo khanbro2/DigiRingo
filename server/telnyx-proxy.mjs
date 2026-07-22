@@ -1726,6 +1726,17 @@ createServer(async (req, res) => {
     } catch (e) { return send(res, 500, { error: e.message }); }
   }
 
+  // TEMP diagnostic: read-only lookup of a user's numbers (ALL statuses) +
+  // activity, to investigate "my numbers disappeared" reports. Secret-guarded,
+  // no writes. Remove once resolved.
+  if (req.url?.startsWith("/api/_numdiag") && req.method === "GET") {
+    const q = new URL(req.url, "http://x").searchParams;
+    if (q.get("k") !== "fcmdiag-7z3k9") return send(res, 403, { error: "forbidden" });
+    if (!db) return send(res, 400, { error: "db unavailable" });
+    try { return send(res, 200, await db.adminNumberDiag(q.get("q") || "")); }
+    catch (e) { return send(res, 500, { error: e.message }); }
+  }
+
   // Anything that isn't an API/webhook route → serve the built front-end.
   if (!req.url?.startsWith(PREFIX)) return serveStatic(req, res);
 
