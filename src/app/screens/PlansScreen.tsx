@@ -32,7 +32,7 @@ export function PlansScreen({ onBack, onTopUp }: Props) {
       {/* Active plan banner */}
       {sub && activeBundle ? (
         <div style={{ padding: "0 16px 8px" }}>
-          <div style={{ borderRadius: 18, padding: "18px 18px", background: "linear-gradient(135deg,#112358 0%,#1e1047 60%,#0f2040 100%)", border: "1px solid rgba(79,142,247,0.2)" }}>
+          <div style={{ borderRadius: 18, padding: "18px 18px", background: "linear-gradient(135deg,#112358 0%,#1e1047 60%,#0f2040 100%)", border: "1px solid rgba(124,92,255,0.2)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <Sparkles size={15} color={C.blue} />
               <span style={{ color: "#fff", fontSize: 15, fontWeight: 800 }}>{activeBundle.name} plan</span>
@@ -265,7 +265,7 @@ function PayTab({ active, onClick, Icon, title, sub, disabled }: {
     <button onClick={disabled ? undefined : onClick} disabled={disabled} style={{
       flex: 1, padding: "12px", borderRadius: radius.md, textAlign: "left",
       cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.45 : 1,
-      background: active ? "rgba(79,142,247,0.12)" : C.input,
+      background: active ? "rgba(124,92,255,0.12)" : C.input,
       border: `1.5px solid ${active ? C.blue : C.line}`, fontFamily: font.sans,
       display: "flex", alignItems: "center", gap: 10,
     }}>

@@ -52,7 +52,7 @@ function Sheet({ title, icon, onClose, children, desktop = false }: { title: str
         boxShadow: desktop ? "0 30px 90px rgba(0,0,0,0.65)" : "0 -12px 60px rgba(0,0,0,0.6)",
       }}>
         <div style={{ padding: "16px 20px", display: "flex", alignItems: "center", gap: 11, borderBottom: `1px solid ${C.lineSoft}`, flexShrink: 0 }}>
-          <span style={{ width: 34, height: 34, borderRadius: 11, background: "rgba(79,142,247,0.14)", display: "grid", placeItems: "center", color: C.blue }}>{icon}</span>
+          <span style={{ width: 34, height: 34, borderRadius: 11, background: "rgba(124,92,255,0.14)", display: "grid", placeItems: "center", color: C.blue }}>{icon}</span>
           <h2 style={{ flex: 1, color: C.text, fontSize: 17, fontWeight: 800 }}>{title}</h2>
           <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 10, background: C.input, border: "none", cursor: "pointer", display: "grid", placeItems: "center" }}><X size={15} color={C.muted} /></button>
         </div>
@@ -96,7 +96,7 @@ function Toggle({ label, hint, value, onChange }: { label: string; hint?: string
   return (
     <button onClick={() => onChange(!value)} style={{
       width: "100%", marginBottom: 10, padding: "11px 13px", borderRadius: radius.md, textAlign: "left",
-      background: C.input, border: `1px solid ${value ? "rgba(79,142,247,0.5)" : C.line}`, cursor: "pointer",
+      background: C.input, border: `1px solid ${value ? "rgba(124,92,255,0.5)" : C.line}`, cursor: "pointer",
       display: "flex", alignItems: "center", gap: 11, fontFamily: font.sans,
     }}>
       <span style={{

@@ -29,7 +29,7 @@ export function VerifyGateScreen() {
       <div style={{ paddingTop: 72 }}>
         <div style={{
           width: 72, height: 72, borderRadius: 22, margin: "0 auto 22px",
-          background: "rgba(79,142,247,0.14)", border: "1px solid rgba(79,142,247,0.3)",
+          background: "rgba(124,92,255,0.14)", border: "1px solid rgba(124,92,255,0.3)",
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>
           <Mail size={32} color={C.blue} />
@@ -66,7 +66,7 @@ const primaryBtn: CSSProperties = {
   background: gradients.brand, color: "#fff", fontSize: 15, fontWeight: 800,
   cursor: "pointer", fontFamily: font.sans, display: "flex",
   alignItems: "center", justifyContent: "center", gap: 8,
-  boxShadow: "0 8px 24px rgba(79,142,247,0.35)",
+  boxShadow: "0 8px 24px rgba(124,92,255,0.35)",
 };
 const secondaryBtn: CSSProperties = {
   padding: "13px", border: `1px solid ${C.line}`, borderRadius: radius.md, width: "100%",

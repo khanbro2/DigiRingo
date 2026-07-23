@@ -1,0 +1,17 @@
+/**
+ * The white DGR monogram from the DIGIRINGO brand (see /brand). Meant to sit
+ * inside a brand-purple rounded square — the app's in-app logo, replacing the
+ * old 📦 placeholder. Path data matches brand/digiringo-mark-dgr.svg.
+ */
+export function DgrMark({ w = 40, color = "#fff" }: { w?: number; color?: string }) {
+  const h = w * (997 / 1650); // mark's intrinsic aspect (incl. the source's lead pad)
+  return (
+    <svg width={w} height={h} viewBox="0 0 1650 997" aria-hidden focusable="false">
+      <g transform="translate(60,997) scale(1,-1)" fill={color}>
+        <path transform="translate(0,0)" d="M25 997H277Q329 997 375.0 977.0Q421 957 455.5 922.5Q490 888 510.0 842.0Q530 796 530 744V252Q530 200 510.0 154.0Q490 108 455.5 74.0Q421 40 375.0 20.0Q329 0 277 0H25ZM201 821V176H277Q309 176 331.5 198.5Q354 221 354 252V744Q354 776 331.5 798.5Q309 821 277 821Z"/>
+        <path transform="translate(530,0)" d="M530 252Q530 200 510.0 154.0Q490 108 455.5 74.0Q421 40 375.0 20.0Q329 0 277 0Q225 0 179.5 19.5Q134 39 99.5 73.5Q65 108 45.0 154.0Q25 200 25 252V744Q25 796 45.0 842.0Q65 888 99.5 922.5Q134 957 180.0 977.0Q226 997 277 997Q329 997 375.0 977.0Q421 957 455.5 922.5Q490 888 510.0 842.0Q530 796 530 744H354Q354 776 331.5 798.5Q309 821 277 821Q245 821 223.0 798.5Q201 776 201 744V252Q201 220 223.0 198.0Q245 176 277 176Q309 176 331.5 198.0Q354 220 354 252V410H285V586H530Z"/>
+        <path transform="translate(1060,0)" d="M201 0H25V326V502V997H201H277Q297 997 316.5 993.5Q336 990 354 985Q392 973 424.5 949.5Q457 926 480.5 894.5Q504 863 517.0 824.5Q530 786 530 744V579Q530 531 514.0 489.5Q498 448 469 415Q498 382 514.0 340.0Q530 298 530 251V0H354V176V251Q354 282 332.0 304.0Q310 326 279 326H277H201V176ZM279 502Q310 503 332.0 525.0Q354 547 354 579V744Q354 776 331.5 798.5Q309 821 277 821H201V502Z"/>
+      </g>
+    </svg>
+  );
+}

@@ -44,7 +44,7 @@ export function SettingsScreen({ go }: Props) {
       {/* Account header → Profile */}
       <div style={{ padding: "0 20px 16px" }}>
         <button onClick={() => go("profile")} style={{ width: "100%", background: C.card, borderRadius: radius.lg, padding: 20, border: `1px solid ${C.lineSoft}`, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", fontFamily: font.sans, textAlign: "left" }}>
-          <div style={{ width: 56, height: 56, borderRadius: "50%", background: gradients.brand, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 22, fontWeight: 800, flexShrink: 0, boxShadow: "0 4px 16px rgba(79,142,247,0.35)" }}>{u?.initial}</div>
+          <div style={{ width: 56, height: 56, borderRadius: "50%", background: gradients.brand, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 22, fontWeight: 800, flexShrink: 0, boxShadow: "0 4px 16px rgba(124,92,255,0.35)" }}>{u?.initial}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ color: C.text, fontSize: 17, fontWeight: 800 }}>{u?.name}</p>
             <p style={{ color: C.muted, fontSize: 13, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u?.email}</p>

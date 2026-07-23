@@ -51,7 +51,7 @@ export function NotifyBar() {
       background: gradients.brand, color: "#fff", padding: "11px 14px",
       display: "flex", alignItems: "center", gap: 10, flexShrink: 0,
       cursor: denied ? "default" : "pointer", fontFamily: font.sans,
-      boxShadow: "0 2px 12px rgba(79,142,247,0.35)", position: "relative", zIndex: 60,
+      boxShadow: "0 2px 12px rgba(124,92,255,0.35)", position: "relative", zIndex: 60,
     }}>
       <BellRing size={17} style={{ flexShrink: 0 }} />
       <p style={{ flex: 1, fontSize: 12.5, fontWeight: 700, lineHeight: 1.35 }}>

@@ -20,9 +20,11 @@ export const colors = {
   line: "var(--dg-line)",
   lineSoft: "var(--dg-lineSoft)",
 
-  // brand
-  blue: "#4f8ef7",
-  purple: "#9b6ff7",
+  // brand — DGR purple (#7C5CFF). `blue` is kept as the token name for the
+  // primary accent (used in ~90 places) but now holds the brand purple so the
+  // whole app reads on-brand; `purple` is a slightly lighter tint for gradients.
+  blue: "#7c5cff",
+  purple: "#9d81ff",
   green: "#22c55e",
   amber: "#f59e0b",
   red: "#ef4444",

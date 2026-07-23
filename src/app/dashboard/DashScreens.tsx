@@ -70,7 +70,7 @@ function Empty({ icon, title, hint, cta }: { icon: string; title: string; hint: 
   );
 }
 
-const primaryBtn: CSSProperties = { display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 15px", borderRadius: 11, border: "none", background: gradients.brand, color: "#fff", fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: font.sans, boxShadow: "0 6px 18px rgba(79,142,247,0.32)" };
+const primaryBtn: CSSProperties = { display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 15px", borderRadius: 11, border: "none", background: gradients.brand, color: "#fff", fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: font.sans, boxShadow: "0 6px 18px rgba(124,92,255,0.32)" };
 const ghostBtn: CSSProperties = { display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 13px", borderRadius: 10, border: `1px solid ${C.line}`, background: C.input, color: C.text, fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: font.sans };
 const th: CSSProperties = { textAlign: "left", color: C.faint, fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", padding: "0 14px 10px" };
 const td: CSSProperties = { padding: "13px 14px", borderTop: `1px solid ${C.lineSoft}`, fontSize: 13, color: C.text, verticalAlign: "middle" };
@@ -230,7 +230,7 @@ export function DashNumbers({ onBuyNumber, onOpenSettings, onOpenInbox }: { onBu
     </Panel>
   );
 }
-const Cap = ({ label }: { label: string }) => <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.4, padding: "2px 7px", borderRadius: 6, background: "rgba(79,142,247,0.14)", color: C.blue, textTransform: "uppercase" }}>{label}</span>;
+const Cap = ({ label }: { label: string }) => <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.4, padding: "2px 7px", borderRadius: 6, background: "rgba(124,92,255,0.14)", color: C.blue, textTransform: "uppercase" }}>{label}</span>;
 const rowBtn: CSSProperties = { width: 32, height: 32, borderRadius: 9, background: C.input, border: `1px solid ${C.line}`, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" };
 
 /* =================================================================== Inbox == */
@@ -280,7 +280,7 @@ export function DashInbox() {
           ) : inboxConvos.map((c) => {
             const active = c.id === activeConvoId;
             return (
-              <button key={c.id} onClick={() => openConvo(c.id)} style={{ width: "100%", textAlign: "left", cursor: "pointer", fontFamily: font.sans, border: "none", borderBottom: `1px solid ${C.lineSoft}`, background: active ? "rgba(79,142,247,0.1)" : "transparent", padding: "13px 15px", display: "flex", alignItems: "center", gap: 11 }}>
+              <button key={c.id} onClick={() => openConvo(c.id)} style={{ width: "100%", textAlign: "left", cursor: "pointer", fontFamily: font.sans, border: "none", borderBottom: `1px solid ${C.lineSoft}`, background: active ? "rgba(124,92,255,0.1)" : "transparent", padding: "13px 15px", display: "flex", alignItems: "center", gap: 11 }}>
                 <span style={{ width: 42, height: 42, borderRadius: 12, background: C.input, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 21, flexShrink: 0 }}>{c.contactFlag}</span>
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ display: "block", color: C.text, fontSize: 12.5, fontWeight: 700, fontFamily: font.mono }}>{c.contact}</span>
@@ -412,7 +412,7 @@ export function DashActivity() {
       {items.length === 0 ? (
         <Empty icon="🔔" title="No activity yet" hint="Account events, alerts and receipts show up here." />
       ) : items.map((a, i) => (
-        <div key={a.id} style={{ padding: "15px 18px", borderTop: i ? `1px solid ${C.lineSoft}` : "none", display: "flex", gap: 13, background: a.read ? "transparent" : "rgba(79,142,247,0.04)" }}>
+        <div key={a.id} style={{ padding: "15px 18px", borderTop: i ? `1px solid ${C.lineSoft}` : "none", display: "flex", gap: 13, background: a.read ? "transparent" : "rgba(124,92,255,0.04)" }}>
           <span style={{ width: 40, height: 40, borderRadius: 12, background: C.input, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, flexShrink: 0 }}>{ACT_ICON[a.kind] || "•"}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

@@ -5,7 +5,7 @@ import { useApp } from "../store/AppStore";
 import type { ActivityKind } from "../core/types";
 
 const ICON: Record<ActivityKind, { Icon: typeof Bell; color: string; bg: string }> = {
-  message:      { Icon: MessageSquare, color: C.blue,   bg: "rgba(79,142,247,0.14)" },
+  message:      { Icon: MessageSquare, color: C.blue,   bg: "rgba(124,92,255,0.14)" },
   call:         { Icon: Phone,         color: C.green,  bg: "rgba(34,197,94,0.14)" },
   wallet:       { Icon: Wallet2,       color: C.green,  bg: "rgba(34,197,94,0.14)" },
   number:       { Icon: Phone,         color: C.purple, bg: "rgba(155,111,247,0.14)" },
@@ -56,7 +56,7 @@ export function ActivityScreen() {
           return (
             <div key={a.id} style={{
               background: C.card, borderRadius: radius.lg, padding: 14,
-              border: `1px solid ${a.read ? C.lineSoft : "rgba(79,142,247,0.25)"}`,
+              border: `1px solid ${a.read ? C.lineSoft : "rgba(124,92,255,0.25)"}`,
               display: "flex", gap: 12, position: "relative",
             }}>
               <div style={{ width: 40, height: 40, borderRadius: 12, background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>

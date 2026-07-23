@@ -92,7 +92,7 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
   return (
     <SettingsShell title="Profile" onBack={onBack}>
       <div style={{ display: "flex", justifyContent: "center", padding: "4px 0 20px" }}>
-        <div style={{ width: 84, height: 84, borderRadius: "50%", background: gradients.brand, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 32, fontWeight: 800, boxShadow: "0 8px 28px rgba(79,142,247,0.4)" }}>{u.initial}</div>
+        <div style={{ width: 84, height: 84, borderRadius: "50%", background: gradients.brand, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 32, fontWeight: 800, boxShadow: "0 8px 28px rgba(124,92,255,0.4)" }}>{u.initial}</div>
       </div>
       <div style={{ padding: "0 20px" }}>
         <Field label="Full name" value={name} onChange={setName} placeholder="Your name" />
@@ -308,7 +308,7 @@ export function ContactsPage({ onBack }: { onBack: () => void }) {
               <div key={c.contact} style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, borderBottom: i < contacts.length - 1 ? `1px solid ${C.lineSoft}` : "none" }}>
                 <div style={{ width: 42, height: 42, borderRadius: 13, background: C.input, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{c.flag}</div>
                 <p style={{ flex: 1, color: C.text, fontSize: 13.5, fontWeight: 600, fontFamily: font.mono }}>{c.contact}</p>
-                <button onClick={() => showToast("Opening conversation…")} style={smallBtn("rgba(79,142,247,0.14)")}><MessageSquare size={15} color={C.blue} /></button>
+                <button onClick={() => showToast("Opening conversation…")} style={smallBtn("rgba(124,92,255,0.14)")}><MessageSquare size={15} color={C.blue} /></button>
                 <button onClick={() => placeCall(c.contact)} style={smallBtn("rgba(34,197,94,0.14)")}><Phone size={15} color={C.green} /></button>
               </div>
             ))}

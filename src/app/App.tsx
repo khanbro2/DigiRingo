@@ -73,7 +73,7 @@ export default function App() {
         @keyframes glowPulse { 0%,100% { box-shadow: 0 0 6px 2px rgba(34,197,94,0.7); } 50% { box-shadow: 0 0 12px 4px rgba(34,197,94,0.3); } }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes dgpulse { 0%,100% { transform: scale(1); box-shadow: 0 16px 48px rgba(79,142,247,0.45); } 50% { transform: scale(1.06); box-shadow: 0 20px 60px rgba(168,85,247,0.5); } }
+        @keyframes dgpulse { 0%,100% { transform: scale(1); box-shadow: 0 16px 48px rgba(124,92,255,0.45); } 50% { transform: scale(1.06); box-shadow: 0 20px 60px rgba(168,85,247,0.5); } }
         .tab-screen { animation: fadeIn 0.22s ease; }
         .glow-dot { animation: glowPulse 2s ease-in-out infinite; }
         .spin { animation: spin 0.7s linear infinite; }

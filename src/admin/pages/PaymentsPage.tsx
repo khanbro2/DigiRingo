@@ -27,7 +27,7 @@ export function PaymentsPage({ toast }: { toast: (m: string) => void }) {
     <div>
       <PageHeader title="Payments" subtitle="Where money comes in — and where payouts go" />
 
-      <div style={{ background: "rgba(79,142,247,0.08)", border: `1px solid rgba(79,142,247,0.25)`, borderRadius: 12, padding: 14, display: "flex", gap: 10, alignItems: "center", marginBottom: 18 }}>
+      <div style={{ background: "rgba(124,92,255,0.08)", border: `1px solid rgba(124,92,255,0.25)`, borderRadius: 12, padding: 14, display: "flex", gap: 10, alignItems: "center", marginBottom: 18 }}>
         <ShieldCheck size={18} color={A.blue} />
         <p style={{ color: A.muted, fontSize: 12.5 }}>Secret keys are sent to your backend and stored encrypted. This dashboard only ever shows the last 4 characters.</p>
       </div>

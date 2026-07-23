@@ -4,6 +4,7 @@ import {
   LifeBuoy, UsersRound,
 } from "lucide-react";
 import { A, gradients, font } from "./ui";
+import { DgrMark } from "../app/components/DgrMark";
 import { AdminProvider } from "./store";
 import { AdminLogin } from "./AdminLogin";
 import { verifySession, clearAdminToken, getAdminToken, type Session } from "./adminAuth";
@@ -102,7 +103,7 @@ export default function AdminApp() {
       {/* Sidebar */}
       <aside style={{ width: A.sidebar, flexShrink: 0, background: A.panel, borderRight: `1px solid ${A.line}`, display: "flex", flexDirection: "column", position: "sticky", top: 0, height: "100vh" }}>
         <div style={{ padding: "22px 22px 18px", display: "flex", alignItems: "center", gap: 11 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: gradients.brand, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>📦</div>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: gradients.brand, display: "flex", alignItems: "center", justifyContent: "center" }}><DgrMark w={24} /></div>
           <div>
             <p style={{ color: A.text, fontSize: 15, fontWeight: 800, lineHeight: 1 }}>DIGIRINGO</p>
             <p style={{ color: A.muted, fontSize: 11, marginTop: 3 }}>Control Hub</p>
@@ -115,7 +116,7 @@ export default function AdminApp() {
               <button key={id} onClick={() => setSection(id)} style={{
                 display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderRadius: 11,
                 border: "none", cursor: "pointer", textAlign: "left", fontFamily: font.sans,
-                background: active ? "rgba(79,142,247,0.14)" : "transparent",
+                background: active ? "rgba(124,92,255,0.14)" : "transparent",
                 color: active ? A.blue : A.muted, fontSize: 14, fontWeight: active ? 700 : 500,
               }}>
                 <Icon size={18} /> {label}

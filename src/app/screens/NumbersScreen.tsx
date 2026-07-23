@@ -62,7 +62,7 @@ export function NumbersScreen({ onBuyNumber, onOpenSettings, onOpenInbox }: Prop
               {countries.map((c, i) => (
                 <button key={c} onClick={() => { setCountry(c); setDropOpen(false); }} style={{
                   width: "100%", padding: "11px 16px", textAlign: "left",
-                  background: country === c ? "rgba(79,142,247,0.14)" : "transparent",
+                  background: country === c ? "rgba(124,92,255,0.14)" : "transparent",
                   color: country === c ? C.blue : C.text, fontSize: 13, fontWeight: country === c ? 600 : 400,
                   border: "none", cursor: "pointer", borderBottom: i < countries.length - 1 ? `1px solid ${C.lineSoft}` : "none", fontFamily: font.sans,
                 }}>{c === "All" ? "🌍 All Countries" : `${state.numbers.find((n) => n.country === c)?.flag} ${c}`}</button>
@@ -88,7 +88,7 @@ export function NumbersScreen({ onBuyNumber, onOpenSettings, onOpenInbox }: Prop
       <button onClick={onBuyNumber} style={{
         position: "fixed", bottom: 98, right: "calc(50% - 195px + 16px)", width: 54, height: 54, borderRadius: "50%",
         background: gradients.brand, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: "0 6px 24px rgba(79,142,247,0.45)", zIndex: 20,
+        boxShadow: "0 6px 24px rgba(124,92,255,0.45)", zIndex: 20,
       }}>
         <Plus size={23} color="#fff" />
       </button>
@@ -114,7 +114,7 @@ function NumberCard({ n, onSettings, onInbox }: { n: PhoneNumber; onSettings: ()
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <div style={{ display: "flex", gap: 6, flex: 1 }}>
-          {n.sms && <span style={tag(C.blue, "rgba(79,142,247,0.14)")}>SMS</span>}
+          {n.sms && <span style={tag(C.blue, "rgba(124,92,255,0.14)")}>SMS</span>}
           {n.voice && <span style={tag(C.purple, "rgba(155,111,247,0.14)")}>Voice</span>}
           <span style={{ color: C.muted, fontSize: 12, alignSelf: "center", marginLeft: 2 }}><span style={{ color: C.green, fontWeight: 700 }}>${n.price}</span>/mo</span>
         </div>

@@ -6,7 +6,7 @@ import { stripeReady, startCheckout } from "../services/stripe";
 
 const C = {
   bg: "var(--dg-bg)", card: "var(--dg-card)", input: "var(--dg-input)", line: "var(--dg-line)",
-  blue: "#4f8ef7", purple: "#9b6ff7", green: "#22c55e", amber: "#f59e0b",
+  blue: "#7c5cff", purple: "#9b6ff7", green: "#22c55e", amber: "#f59e0b",
   text: "var(--dg-text)", muted: "var(--dg-muted)", red: "#ef4444",
 };
 
@@ -55,7 +55,7 @@ function Tag({ label }: { label: string }) {
   return (
     <span style={{
       fontSize: 10, fontWeight: 700, letterSpacing: 0.4, padding: "2px 7px", borderRadius: 6,
-      background: "rgba(79,142,247,0.14)", color: C.blue, textTransform: "uppercase",
+      background: "rgba(124,92,255,0.14)", color: C.blue, textTransform: "uppercase",
     }}>{label}</span>
   );
 }
@@ -64,7 +64,7 @@ function TypeBtn({ active, onClick, title, sub }: { active: boolean; onClick: ()
   return (
     <button onClick={onClick} style={{
       flex: 1, padding: "11px 12px", borderRadius: 14, cursor: "pointer", textAlign: "left",
-      background: active ? "rgba(79,142,247,0.12)" : C.input,
+      background: active ? "rgba(124,92,255,0.12)" : C.input,
       border: `1.5px solid ${active ? C.blue : "rgba(255,255,255,0.07)"}`,
       fontFamily: "'Inter',sans-serif",
     }}>
@@ -87,7 +87,7 @@ function PayTab({ active, onClick, Icon, title, sub, disabled }: {
     <button onClick={disabled ? undefined : onClick} disabled={disabled} style={{
       flex: 1, padding: "12px 12px", borderRadius: 14, textAlign: "left",
       cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.45 : 1,
-      background: active ? "rgba(79,142,247,0.12)" : C.input,
+      background: active ? "rgba(124,92,255,0.12)" : C.input,
       border: `1.5px solid ${active ? C.blue : "rgba(255,255,255,0.07)"}`,
       fontFamily: "'Inter',sans-serif", display: "flex", alignItems: "center", gap: 10,
     }}>
@@ -270,7 +270,7 @@ export function BuyNumberModal({ onClose, onSearch, walletBalance, subscription,
                   {COUNTRIES.map((c, i) => (
                     <button key={c.iso} onClick={() => { setCountry(c); setCDrop(false); }} style={{
                       width: "100%", padding: "12px 16px",
-                      background: country.iso === c.iso ? "rgba(79,142,247,0.12)" : "transparent",
+                      background: country.iso === c.iso ? "rgba(124,92,255,0.12)" : "transparent",
                       border: "none", cursor: "pointer",
                       borderBottom: i < COUNTRIES.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
                       display: "flex", alignItems: "center", gap: 10,
@@ -337,7 +337,7 @@ export function BuyNumberModal({ onClose, onSearch, walletBalance, subscription,
                     <div key={n.e164}>
                       <button onClick={() => selectNumber(n.number)} style={{
                         width: "100%", padding: "14px 16px",
-                        background: isSel ? "rgba(79,142,247,0.1)" : C.input,
+                        background: isSel ? "rgba(124,92,255,0.1)" : C.input,
                         border: `1.5px solid ${isSel ? C.blue : "rgba(255,255,255,0.07)"}`,
                         borderRadius: isSel ? "14px 14px 0 0" : 14, cursor: "pointer",
                         display: "flex", alignItems: "center", gap: 12, textAlign: "left",
@@ -367,7 +367,7 @@ export function BuyNumberModal({ onClose, onSearch, walletBalance, subscription,
                       {isSel && (
                         <div style={{
                           border: `1.5px solid ${C.blue}`, borderTop: "none", borderRadius: "0 0 14px 14px",
-                          background: "rgba(79,142,247,0.05)", padding: "16px", animation: "fadeIn 0.2s ease",
+                          background: "rgba(124,92,255,0.05)", padding: "16px", animation: "fadeIn 0.2s ease",
                         }}>
                           {mode === "freeSlot" && (
                             <>
@@ -455,13 +455,13 @@ export function BuyNumberModal({ onClose, onSearch, walletBalance, subscription,
                                     <button key={b.id} onClick={() => setPickedTier(b.id)} style={{
                                       width: "100%", textAlign: "left", cursor: "pointer", fontFamily: "'Inter',sans-serif",
                                       padding: "12px 13px", borderRadius: 13,
-                                      background: on ? "rgba(79,142,247,0.12)" : C.input,
-                                      border: `1.5px solid ${on ? C.blue : (b.featured ? "rgba(79,142,247,0.4)" : "rgba(255,255,255,0.07)")}`,
+                                      background: on ? "rgba(124,92,255,0.12)" : C.input,
+                                      border: `1.5px solid ${on ? C.blue : (b.featured ? "rgba(124,92,255,0.4)" : "rgba(255,255,255,0.07)")}`,
                                     }}>
                                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                                         <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
                                           <span style={{ color: C.text, fontSize: 14, fontWeight: 800 }}>{b.name}</span>
-                                          {b.featured && <span style={{ fontSize: 9, fontWeight: 800, color: C.blue, background: "rgba(79,142,247,0.16)", padding: "2px 6px", borderRadius: 999 }}>POPULAR</span>}
+                                          {b.featured && <span style={{ fontSize: 9, fontWeight: 800, color: C.blue, background: "rgba(124,92,255,0.16)", padding: "2px 6px", borderRadius: 999 }}>POPULAR</span>}
                                         </span>
                                         <span style={{ color: C.text, fontSize: 15, fontWeight: 800 }}>
                                           ${price.toFixed(cycle === "annual" ? 0 : 2)}<span style={{ color: C.muted, fontSize: 11, fontWeight: 600 }}>{cycle === "annual" ? "/yr" : "/mo"}</span>
@@ -484,7 +484,7 @@ export function BuyNumberModal({ onClose, onSearch, walletBalance, subscription,
                                   ...primaryBtn, marginTop: 12,
                                   background: pickedTier ? `linear-gradient(135deg,${C.blue},${C.purple})` : "rgba(255,255,255,0.06)",
                                   color: pickedTier ? "#fff" : C.muted, cursor: pickedTier ? "pointer" : "not-allowed",
-                                  boxShadow: pickedTier ? "0 6px 20px rgba(79,142,247,0.4)" : "none",
+                                  boxShadow: pickedTier ? "0 6px 20px rgba(124,92,255,0.4)" : "none",
                                 }}
                               >
                                 {pickedTier
@@ -570,7 +570,7 @@ export function BuyNumberModal({ onClose, onSearch, walletBalance, subscription,
                       fontSize: 14, fontWeight: 800, fontFamily: "'Inter',sans-serif",
                       background: enough ? `linear-gradient(135deg,${C.blue},${C.purple})` : "rgba(255,255,255,0.06)",
                       cursor: enough && !busy ? "pointer" : "not-allowed",
-                      boxShadow: enough ? "0 6px 20px rgba(79,142,247,0.4)" : "none",
+                      boxShadow: enough ? "0 6px 20px rgba(124,92,255,0.4)" : "none",
                     }}
                   >
                     {busy ? "Processing…" : `Pay $${payAmount.toFixed(payingPlan && cycle === "annual" ? 0 : 2)} from wallet`}
@@ -594,7 +594,7 @@ export function BuyNumberModal({ onClose, onSearch, walletBalance, subscription,
                       flex: 2, padding: "14px", border: "none", borderRadius: 14, color: "#fff",
                       fontSize: 14, fontWeight: 800, fontFamily: "'Inter',sans-serif",
                       background: `linear-gradient(135deg,${C.blue},${C.purple})`,
-                      cursor: "pointer", boxShadow: "0 6px 20px rgba(79,142,247,0.4)",
+                      cursor: "pointer", boxShadow: "0 6px 20px rgba(124,92,255,0.4)",
                       display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                     }}
                   >

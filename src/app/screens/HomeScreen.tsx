@@ -71,7 +71,7 @@ export function HomeScreen({ onBuyNumber, onOpenInbox, onOpenTrust, onTopUp }: P
       {/* Summary cards (Quo-style) */}
       <div style={{ padding: "0 20px 16px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <SummaryCard
-          icon={<MessageSquare size={18} color={C.blue} />} iconBg="rgba(79,142,247,0.14)"
+          icon={<MessageSquare size={18} color={C.blue} />} iconBg="rgba(124,92,255,0.14)"
           value={`${unread}`} label="Unread chats" onClick={onOpenInbox}
         />
         <SummaryCard

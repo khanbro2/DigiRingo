@@ -136,8 +136,8 @@ export function DashboardShell() {
       <button onClick={() => go(id)} style={{
         display: "flex", alignItems: "center", gap: 11, width: "100%", padding: "10px 12px",
         borderRadius: 11, cursor: "pointer", fontFamily: font.sans, textAlign: "left",
-        background: active ? "rgba(79,142,247,0.12)" : "transparent",
-        border: `1px solid ${active ? "rgba(79,142,247,0.28)" : "transparent"}`,
+        background: active ? "rgba(124,92,255,0.12)" : "transparent",
+        border: `1px solid ${active ? "rgba(124,92,255,0.28)" : "transparent"}`,
         color: active ? C.text : C.muted, transition: "background 0.15s, color 0.15s",
       }}>
         <Icon size={18} color={active ? C.blue : C.faint} />
@@ -154,7 +154,7 @@ export function DashboardShell() {
       {/* ---------- Sidebar ---------- */}
       <aside style={{ width: 252, flexShrink: 0, background: C.cardAlt, borderRight: `1px solid ${C.line}`, display: "flex", flexDirection: "column", padding: "20px 14px 14px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 8px 20px" }}>
-          <div style={{ width: 34, height: 34, borderRadius: 10, background: gradients.brand, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 18px rgba(79,142,247,0.4)" }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: gradients.brand, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 18px rgba(124,92,255,0.4)" }}>
             <Phone size={17} color="#fff" />
           </div>
           <div>
@@ -203,7 +203,7 @@ export function DashboardShell() {
             <p style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>{meta.sub}</p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button onClick={() => setShowBuy(true)} style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 15px", borderRadius: 11, border: "none", background: gradients.brand, color: "#fff", fontSize: 13.5, fontWeight: 800, cursor: "pointer", fontFamily: font.sans, boxShadow: "0 6px 18px rgba(79,142,247,0.35)" }}>
+            <button onClick={() => setShowBuy(true)} style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 15px", borderRadius: 11, border: "none", background: gradients.brand, color: "#fff", fontSize: 13.5, fontWeight: 800, cursor: "pointer", fontFamily: font.sans, boxShadow: "0 6px 18px rgba(124,92,255,0.35)" }}>
               <Plus size={16} /> New number
             </button>
             <button onClick={() => go("activity")} title="Activity" style={iconBtn}>
@@ -211,7 +211,7 @@ export function DashboardShell() {
               {unreadActivity > 0 && <span style={{ position: "absolute", top: 7, right: 7, width: 8, height: 8, borderRadius: "50%", background: C.red, border: `2px solid ${C.bg}` }} />}
             </button>
             <ThemeToggle />
-            <button onClick={() => setShowMobile((v) => !v)} title="Mobile preview" style={{ ...iconBtn, background: showMobile ? "rgba(79,142,247,0.14)" : C.input, borderColor: showMobile ? "rgba(79,142,247,0.4)" : C.line }}>
+            <button onClick={() => setShowMobile((v) => !v)} title="Mobile preview" style={{ ...iconBtn, background: showMobile ? "rgba(124,92,255,0.14)" : C.input, borderColor: showMobile ? "rgba(124,92,255,0.4)" : C.line }}>
               <Smartphone size={17} color={showMobile ? C.blue : C.muted} />
             </button>
           </div>

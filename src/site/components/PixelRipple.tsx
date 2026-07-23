@@ -11,7 +11,7 @@ import { useEffect, useRef } from "react";
  * hero with the headline/buttons layered above (higher z-index).
  */
 const CELL = 24; // grid spacing in px
-const BLUE = [79, 142, 247];
+const BLUE = [124, 92, 255];
 const PURPLE = [155, 111, 247];
 
 export function PixelRipple({ className }: { className?: string }) {
@@ -50,7 +50,7 @@ export function PixelRipple({ className }: { className?: string }) {
       const px = CELL * 0.42;
       for (let cx = CELL / 2; cx < w; cx += CELL) {
         for (let cy = CELL / 2; cy < h; cy += CELL) {
-          ctx.fillStyle = "rgba(79,142,247,0.08)";
+          ctx.fillStyle = "rgba(124,92,255,0.08)";
           ctx.fillRect(cx - px / 2, cy - px / 2, px, px);
         }
       }

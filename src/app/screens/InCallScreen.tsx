@@ -97,8 +97,8 @@ export function InCallScreen({ desktop }: { desktop?: boolean }) {
         </p>
         <div style={{
           width: 108, height: 108, borderRadius: "50%", margin: "26px auto 20px",
-          background: "linear-gradient(135deg,#4f8ef7,#a855f7)", display: "flex", alignItems: "center",
-          justifyContent: "center", fontSize: 44, boxShadow: "0 16px 48px rgba(79,142,247,0.45)",
+          background: "linear-gradient(135deg,#7c5cff,#a855f7)", display: "flex", alignItems: "center",
+          justifyContent: "center", fontSize: 44, boxShadow: "0 16px 48px rgba(124,92,255,0.45)",
           animation: ringing ? "dgpulse 1.6s ease-in-out infinite" : "none",
         }}>📞</div>
         <p style={{ color: "#fff", fontSize: 26, fontWeight: 800, fontFamily: font.mono, letterSpacing: 0.5, wordBreak: "break-all" }}>{contact}</p>

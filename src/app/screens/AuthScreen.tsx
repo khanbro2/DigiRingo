@@ -3,6 +3,7 @@ import { Mail, Lock, User as UserIcon, ArrowRight } from "lucide-react";
 import { C, gradients, font, radius } from "../core/theme";
 import { useApp } from "../store/AppStore";
 import { apiForgotPassword } from "../services/api";
+import { DgrMark } from "../components/DgrMark";
 
 /** Sign up / Log in. Gates the whole app — nothing is reachable until logged in. */
 export function AuthScreen() {
@@ -47,8 +48,8 @@ export function AuthScreen() {
         <div style={{
           width: 64, height: 64, borderRadius: 20, margin: "0 auto 18px",
           background: gradients.brand, display: "flex", alignItems: "center",
-          justifyContent: "center", fontSize: 30, boxShadow: "0 12px 36px rgba(79,142,247,0.4)",
-        }}>📦</div>
+          justifyContent: "center", boxShadow: "0 12px 36px rgba(124,92,255,0.4)",
+        }}><DgrMark w={42} /></div>
         <h1 style={{ color: C.text, fontSize: 26, fontWeight: 800 }}>DIGIRINGO</h1>
         <p style={{ color: C.muted, fontSize: 13, marginTop: 6 }}>
           {forgot ? "Reset your password" : mode === "signup" ? "Create your workspace" : "Log in to your workspace"}
@@ -130,7 +131,7 @@ const primaryBtn = (busy: boolean): CSSProperties => ({
   background: gradients.brand, color: "#fff", fontSize: 15, fontWeight: 800,
   cursor: busy ? "wait" : "pointer", fontFamily: font.sans, display: "flex",
   alignItems: "center", justifyContent: "center", gap: 8, opacity: busy ? 0.7 : 1,
-  boxShadow: "0 8px 24px rgba(79,142,247,0.35)",
+  boxShadow: "0 8px 24px rgba(124,92,255,0.35)",
 });
 const backBtn: CSSProperties = {
   background: "none", border: "none", color: C.muted, fontSize: 13, fontWeight: 600,

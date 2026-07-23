@@ -55,7 +55,7 @@ export function AdminSupport({ toast }: { toast: (m: string) => void }) {
               return (
                 <button key={t.userId} onClick={() => setActive(t.userId)} style={{
                   width: "100%", textAlign: "left", padding: "13px 16px", border: "none", cursor: "pointer",
-                  borderBottom: `1px solid ${A.lineSoft}`, background: on ? "rgba(79,142,247,0.12)" : "transparent",
+                  borderBottom: `1px solid ${A.lineSoft}`, background: on ? "rgba(124,92,255,0.12)" : "transparent",
                   display: "flex", flexDirection: "column", gap: 3, fontFamily: font.sans,
                 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>

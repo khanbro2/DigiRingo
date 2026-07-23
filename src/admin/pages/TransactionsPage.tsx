@@ -30,7 +30,7 @@ export function TransactionsPage({ toast }: { toast: (m: string) => void }) {
           <button key={f} onClick={() => setFilter(f)} style={{
             padding: "8px 14px", borderRadius: 10, cursor: "pointer", fontSize: 12.5, fontWeight: 700,
             textTransform: "capitalize", border: `1px solid ${filter === f ? A.blue : A.line}`,
-            background: filter === f ? "rgba(79,142,247,0.14)" : A.panel, color: filter === f ? A.blue : A.muted,
+            background: filter === f ? "rgba(124,92,255,0.14)" : A.panel, color: filter === f ? A.blue : A.muted,
           }}>{f === "topup" ? "Top-ups" : f === "charge" ? "Charges" : "All"}</button>
         ))}
         <div style={{ marginLeft: "auto", alignSelf: "center", color: A.muted, fontSize: 13 }}>

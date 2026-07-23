@@ -48,7 +48,7 @@ export function InboxScreen() {
             <p style={{ color: C.text, fontSize: 13, fontWeight: 700, fontFamily: font.mono }}>{activeConvo.contact}</p>
             <p style={{ color: C.muted, fontSize: 11, marginTop: 3 }}>via {num?.settings.label || num?.number}</p>
           </div>
-          <button style={{ ...iconBtn, background: "rgba(79,142,247,0.12)" }}><Phone size={16} color={C.blue} /></button>
+          <button style={{ ...iconBtn, background: "rgba(124,92,255,0.12)" }}><Phone size={16} color={C.blue} /></button>
         </div>
 
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 16px 8px", display: "flex", flexDirection: "column", gap: 10 }}>
@@ -88,7 +88,7 @@ export function InboxScreen() {
             width: 46, height: 46, borderRadius: "50%", flexShrink: 0, border: "none",
             background: locked ? "rgba(255,255,255,0.08)" : gradients.brand,
             cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: locked ? "none" : "0 4px 16px rgba(79,142,247,0.4)",
+            boxShadow: locked ? "none" : "0 4px 16px rgba(124,92,255,0.4)",
           }}>
             <SendIcon size={17} color={locked ? C.faint : "#fff"} />
           </button>
@@ -166,7 +166,7 @@ export function InboxScreen() {
               const sel = n.id === activeNumber?.id;
               return (
                 <button key={n.id} onClick={() => { selectNumber(n.id); setShowSwitcher(false); }} style={{
-                  width: "100%", padding: "13px 20px", background: sel ? "rgba(79,142,247,0.12)" : "transparent",
+                  width: "100%", padding: "13px 20px", background: sel ? "rgba(124,92,255,0.12)" : "transparent",
                   border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, fontFamily: font.sans,
                 }}>
                   <div style={{ width: 40, height: 40, borderRadius: 12, background: C.input, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{n.settings.icon}</div>

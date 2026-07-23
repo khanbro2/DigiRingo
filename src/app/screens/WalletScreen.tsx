@@ -74,8 +74,8 @@ export function WalletScreen({ onBack, onOpenTrust, desktop }: Props) {
 
       {/* Balance card */}
       <div style={{ padding: "0 20px 16px" }}>
-        <div style={{ borderRadius: 22, padding: "28px 24px", background: "linear-gradient(135deg,#112358 0%,#1e1047 55%,#0f2040 100%)", border: "1px solid rgba(79,142,247,0.18)", position: "relative", overflow: "hidden" }}>
-          <div style={{ position: "absolute", top: -50, right: -50, width: 160, height: 160, borderRadius: "50%", background: "rgba(79,142,247,0.08)" }} />
+        <div style={{ borderRadius: 22, padding: "28px 24px", background: "linear-gradient(135deg,#112358 0%,#1e1047 55%,#0f2040 100%)", border: "1px solid rgba(124,92,255,0.18)", position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "absolute", top: -50, right: -50, width: 160, height: 160, borderRadius: "50%", background: "rgba(124,92,255,0.08)" }} />
           <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 11, fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase" }}>Available Balance</p>
           <p style={{ color: "#fff", fontSize: 46, fontWeight: 800, marginTop: 8, lineHeight: 1, letterSpacing: -1 }}>
             ${Math.floor(state.wallet.balance)}<span style={{ fontSize: 28, fontWeight: 600 }}>.{(state.wallet.balance % 1).toFixed(2).slice(2)}</span>
@@ -93,7 +93,7 @@ export function WalletScreen({ onBack, onOpenTrust, desktop }: Props) {
         <div style={{ padding: "0 20px 16px" }}>
           <p style={{ color: C.text, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Payment method</p>
           <div style={{ background: C.card, borderRadius: radius.lg, border: `1px solid ${C.lineSoft}`, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 42, height: 42, borderRadius: 12, background: "rgba(79,142,247,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <div style={{ width: 42, height: 42, borderRadius: 12, background: "rgba(124,92,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <CreditCard size={20} color={C.blue} />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -188,7 +188,7 @@ export function WalletScreen({ onBack, onOpenTrust, desktop }: Props) {
                 return (
                   <button key={p} onClick={() => !disabled && topUp(p)} disabled={disabled} style={{
                     padding: "22px 0", borderRadius: radius.md, cursor: disabled ? "not-allowed" : "pointer", fontFamily: font.sans,
-                    background: isBusy ? "rgba(79,142,247,0.12)" : C.input,
+                    background: isBusy ? "rgba(124,92,255,0.12)" : C.input,
                     border: `1.5px solid ${isBusy ? C.blue : C.line}`, opacity: disabled && !isBusy ? 0.5 : 1,
                     color: C.text, fontSize: 22, fontWeight: 800,
                     display: "flex", alignItems: "center", justifyContent: "center", gap: 8,

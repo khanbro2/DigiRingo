@@ -42,7 +42,7 @@ export function StatCard({ label, value, delta, icon, accent }: { label: string;
 export function Badge({ children, tone }: { children: ReactNode; tone: "green" | "amber" | "red" | "blue" | "purple" | "muted" }) {
   const map = {
     green: [A.green, "rgba(34,197,94,0.14)"], amber: [A.amber, "rgba(245,158,11,0.14)"],
-    red: [A.red, "rgba(239,68,68,0.14)"], blue: [A.blue, "rgba(79,142,247,0.14)"],
+    red: [A.red, "rgba(239,68,68,0.14)"], blue: [A.blue, "rgba(124,92,255,0.14)"],
     purple: [A.purple, "rgba(155,111,247,0.14)"],
     muted: [A.muted, "rgba(136,146,170,0.14)"],
   } as const;

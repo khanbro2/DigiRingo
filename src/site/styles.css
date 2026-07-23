@@ -27,10 +27,10 @@
 
   /* ambient page glow */
   --glow-a: rgba(155, 111, 247, 0.16);
-  --glow-b: rgba(79, 142, 247, 0.16);
+  --glow-b: rgba(124, 92, 255, 0.16);
 
   /* brand */
-  --blue: #4f8ef7;
+  --blue: #7c5cff;
   --purple: #9b6ff7;
   --cyan: #38d8ff;
   --green: #22c55e;
@@ -42,7 +42,7 @@
   --grad-text-start: #ffffff;
 
   --grad: linear-gradient(120deg, var(--blue), var(--purple));
-  --grad-soft: linear-gradient(120deg, rgba(79, 142, 247, 0.16), rgba(155, 111, 247, 0.16));
+  --grad-soft: linear-gradient(120deg, rgba(124, 92, 255, 0.16), rgba(155, 111, 247, 0.16));
 
   --maxw: 1180px;
   --nav-h: 64px;
@@ -97,7 +97,7 @@ body {
 
 a { color: inherit; text-decoration: none; }
 button { font-family: inherit; cursor: pointer; }
-::selection { background: rgba(79, 142, 247, 0.35); color: #fff; }
+::selection { background: rgba(124, 92, 255, 0.35); color: #fff; }
 
 /* --- ambient page glow ------------------------------------------------------ */
 .dg-shell { position: relative; overflow: hidden; min-height: 100vh; isolation: isolate; }
@@ -198,7 +198,7 @@ button { font-family: inherit; cursor: pointer; }
 .dg-btn-primary {
   background: var(--grad);
   color: #fff;
-  box-shadow: 0 10px 34px -10px rgba(79, 142, 247, 0.7);
+  box-shadow: 0 10px 34px -10px rgba(124, 92, 255, 0.7);
 }
 .dg-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 18px 44px -12px rgba(123, 110, 247, 0.8); }
 .dg-btn-ghost { background: var(--hover); color: var(--text); border-color: var(--line); }
@@ -343,7 +343,7 @@ button { font-family: inherit; cursor: pointer; }
 
 /* --- pricing --------------------------------------------------------------- */
 .dg-price-card { display: flex; flex-direction: column; }
-.dg-price-card.feat { background: linear-gradient(180deg, rgba(79,142,247,0.12), rgba(155,111,247,0.05)); border-color: rgba(123,110,247,0.4); }
+.dg-price-card.feat { background: linear-gradient(180deg, rgba(124,92,255,0.12), rgba(155,111,247,0.05)); border-color: rgba(123,110,247,0.4); }
 .dg-price-amt { font-size: 50px; font-weight: 800; letter-spacing: -0.03em; }
 .dg-feat-li { display: flex; align-items: flex-start; gap: 11px; padding: 9px 0; font-size: 14.5px; color: var(--muted); }
 .dg-feat-li svg { color: var(--green); flex-shrink: 0; margin-top: 2px; }
@@ -383,7 +383,7 @@ button { font-family: inherit; cursor: pointer; }
   transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
 }
 .dg-input::placeholder { color: var(--faint); }
-.dg-input:focus { outline: none; border-color: var(--blue); background: rgba(79,142,247,0.06); box-shadow: 0 0 0 4px rgba(79,142,247,0.12); }
+.dg-input:focus { outline: none; border-color: var(--blue); background: rgba(124,92,255,0.06); box-shadow: 0 0 0 4px rgba(124,92,255,0.12); }
 .dg-input-wrap { position: relative; }
 .dg-input-wrap .ic { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--faint); pointer-events: none; }
 .dg-input-wrap .dg-input { padding-left: 44px; }
@@ -415,7 +415,7 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: var(--radius-lg);
   padding: clamp(44px, 7vw, 84px);
   text-align: center;
-  background: linear-gradient(135deg, rgba(79,142,247,0.18), rgba(155,111,247,0.16));
+  background: linear-gradient(135deg, rgba(124,92,255,0.18), rgba(155,111,247,0.16));
   border: 1px solid rgba(123,110,247,0.3);
   position: relative;
   overflow: hidden;

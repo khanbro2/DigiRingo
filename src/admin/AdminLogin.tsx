@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Lock, ShieldCheck, Mail, User } from "lucide-react";
 import { A, gradients, font } from "./ui";
+import { DgrMark } from "../app/components/DgrMark";
 import { adminLogin, agentLogin } from "./adminAuth";
 
 /** Sign-in gate for the Control Hub. Owners sign in with the admin password;
@@ -35,7 +36,7 @@ export function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');*{box-sizing:border-box}`}</style>
       <div style={{ width: "100%", maxWidth: 380, background: A.panel, border: `1px solid ${A.line}`, borderRadius: 18, padding: 32 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 11, background: gradients.brand, display: "grid", placeItems: "center", fontSize: 20 }}>📦</div>
+          <div style={{ width: 40, height: 40, borderRadius: 11, background: gradients.brand, display: "grid", placeItems: "center" }}><DgrMark w={26} /></div>
           <div>
             <p style={{ color: A.text, fontSize: 16, fontWeight: 800, lineHeight: 1 }}>DIGIRINGO</p>
             <p style={{ color: A.muted, fontSize: 11.5, marginTop: 3 }}>Control Hub</p>

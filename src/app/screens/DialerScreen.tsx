@@ -113,7 +113,7 @@ export function DialerScreen({ onClose, onCall }: Props) {
               const sel = n.id === active?.id;
               return (
                 <button key={n.id} onClick={() => { selectNumber(n.id); setShowPicker(false); }} style={{
-                  width: "100%", padding: "13px 20px", background: sel ? "rgba(79,142,247,0.12)" : "transparent",
+                  width: "100%", padding: "13px 20px", background: sel ? "rgba(124,92,255,0.12)" : "transparent",
                   border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, fontFamily: font.sans,
                 }}>
                   <div style={{ width: 40, height: 40, borderRadius: 12, background: C.input, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{n.flag}</div>
