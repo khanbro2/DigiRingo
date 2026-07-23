@@ -261,6 +261,7 @@ const PAGE_ROUTES = {
   "/admin": "admin.html",
   "/privacy": "privacy.html",
   "/terms": "terms.html",
+  "/delete-account": "delete-account.html",
 };
 
 async function tryFile(absPath) {
