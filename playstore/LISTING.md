@@ -217,19 +217,21 @@ Console.
 
 ---
 
-## 9. Release path (Personal accounts created after Nov 2023)
+## 9. Release path
 
-Google requires **closed testing with at least 12 testers who stay opted in for
-14 consecutive days** before you may apply for production access.
+This account is an **Organization** account, so the 12-testers × 14-days closed
+testing requirement does **not** apply — you can publish straight to production.
 
-1. Play Console → **Testing → Closed testing** → create a track.
-2. Add 12+ tester email addresses (Google accounts) to an email list.
-3. Upload the AAB, roll out, share the opt-in link with the testers.
-4. Testers install and keep the app installed for 14 days.
-5. **Apply for production access** → then promote the release to Production.
+1. Play Console → **Create app** → fill §1.
+2. **Store listing** → paste §2, §3; upload §4 assets.
+3. **App content** → complete §5, §6, §7 (all of them must be green before a
+   release can be rolled out).
+4. **Production → Create new release** → upload `app-release.aab` from §8 →
+   write release notes → **Review release** → **Start rollout to Production**.
 
-Organization accounts (with a D-U-N-S number) skip this and can publish straight
-to production.
+First review typically takes a few days. A short **internal testing** release
+first (instant, up to 100 testers) is still worth doing to catch install or
+login problems before the public sees them.
 
 ---
 
