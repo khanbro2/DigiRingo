@@ -30,6 +30,9 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # A stuck step used to sit in `in_progress` until GitHub's 6-hour default
+    # killed it, blocking every later deploy behind the concurrency group.
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -59,8 +62,25 @@ jobs:
           printf '%s\n' "${{ secrets.HOSTINGER_SSH_KEY }}" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
+      # lftp is not a speed choice — it's the only option. Hostinger kills remote
+      # SHELL sessions from datacenter IPs (so rsync / tar-over-ssh can't work)
+      # but leaves the SFTP subsystem open, which is what lftp drives here.
+      #
+      # `apt-get update` is the slow, flaky part: one run hung on it for 10+
+      # minutes. The runner image already ships a usable package index, so try a
+      # bare install first and only refresh the lists if that misses. Both are
+      # under `timeout` so a hung mirror fails in seconds instead of stalling the
+      # job for hours.
       - name: Install lftp
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+        run: |
+          if timeout 120 sudo apt-get install -y -qq lftp; then
+            echo "lftp installed from the cached package index"
+          else
+            echo "cached index missed — refreshing"
+            timeout 240 sudo apt-get update -qq
+            timeout 180 sudo apt-get install -y -qq lftp
+          fi
+          lftp --version | head -1
 
       - name: Deploy via SFTP (no remote shell — Hostinger kills shell sessions
               from datacenter IPs, but the SFTP subsystem is allowed)
