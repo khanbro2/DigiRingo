@@ -253,10 +253,14 @@ const MIME = {
 
 // Clean URLs → built HTML entries. Root is the marketing site; the app and the
 // Control Hub live under /app and /admin.
+// /privacy and /terms are standalone static pages (Google Play requires a public,
+// stable privacy-policy URL for the store listing).
 const PAGE_ROUTES = {
   "/": "site.html",
   "/app": "index.html",
   "/admin": "admin.html",
+  "/privacy": "privacy.html",
+  "/terms": "terms.html",
 };
 
 async function tryFile(absPath) {
